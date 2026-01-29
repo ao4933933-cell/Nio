@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NIO - Progress & Experience Premium</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        :root {
+            --nio-blue: #00a3e0;
+            --dark-bg: #02060d;
+            --card-bg: rgba(255, 255, 255, 0.04);
+            --border-glass: rgba(255, 255, 255, 0.1);
+            --nio-gradient: linear-gradient(135deg, #00a3e0 0%, #006699 100%);
+            --popular-gold: #ffd700;
+        }
+
+        /* RESET GERAL */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--dark-bg);
+            color: white;
+            padding-bottom: 110px;
+            overflow-x: hidden;
+            background-image: radial-gradient(circle at top right, #0a1a2f 0%, transparent 40%);
+        }
+
+        /* CARROSSEL ROLETA */
+        .header-slider {
+            width: 92%;
+            height: 220px;
+            margin: 15px auto;
+            overflow: hidden;
+            border-radius: 30px;
+            border: 1px solid var(--border-glass);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+        }
+
+        .swiper-container { width: 100%; height: 100%; }
+        .swiper-slide img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* GRID DE AÇÕES */
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            padding: 10px 20px 20px;
+        }
+
+        .action-item {
+            text-align: center;
+            text-decoration: none;
+            color: white;
+        }
+
+        .icon-box {
+            width: 60px;
+            height: 60px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 8px;
+            font-size: 22px;
+            color: var(--nio-blue);
+        }
+
+        .action-item span {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            opacity: 0.8;
+        }
+
+        /* CATEGORIAS */
+        .tabs-container {
+            display: flex;
+            padding: 0 20px;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 14px;
+            border-radius: 15px;
+            border: 1px solid var(--border-glass);
+            background: var(--card-bg);
+            color: rgba(255,255,255,0.4);
+            font-weight: 800;
+            text-align: center;
+            font-size: 12px;
+        }
+
+        .tab-btn.active {
+            background: var(--nio-blue);
+            color: white;
+            box-shadow: 0 5px 15px rgba(0, 163, 224, 0.3);
+        }
+
+        /* LISTAGEM DE PLANOS */
+        .plans-list { padding: 0 20px; }
+
+        .plan-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-glass);
+            border-radius: 30px;
+            margin-bottom: 35px;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .plan-img-container {
+            width: 100%;
+            height: 200px;
+            position: relative;
+        }
+
+        .plan-img-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .plan-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: var(--nio-blue);
+            padding: 6px 14px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+
+        .plan-badge.popular {
+            background: var(--popular-gold);
+            color: black;
+        }
+
+        .plan-info { padding: 20px; }
+
+        .plan-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .plan-title { font-size: 1.1rem; font-weight: 300; letter-spacing: 0.5px; }
+        .plan-price { font-size: 1.4rem; color: var(--nio-blue); font-weight: 800; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+            background: rgba(0,0,0,0.4);
+            padding: 15px;
+            border-radius: 20px;
+        }
+
+        .stat-box { text-align: center; }
+        .stat-box h4 { font-size: 14px; color: #00ff88; font-weight: 700; }
+        .stat-box p { font-size: 9px; color: rgba(255,255,255,0.4); margin-top: 4px; text-transform: uppercase; }
+
+        .btn-buy {
+            width: 100%;
+            padding: 18px;
+            background: var(--nio-gradient);
+            color: white;
+            border: none;
+            border-radius: 18px;
+            font-weight: 900;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            box-shadow: 0 10px 25px rgba(0, 163, 224, 0.3);
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .btn-buy:active { transform: scale(0.95); }
+
+        /* MENU INFERIOR */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background: rgba(10, 26, 47, 0.98);
+            backdrop-filter: blur(20px);
+            display: flex;
+            justify-content: space-around;
+            padding: 15px 0 30px;
+            border-top: 1px solid var(--border-glass);
+            z-index: 1000;
+        }
+
+        .nav-item { text-align: center; color: rgba(255,255,255,0.4); text-decoration: none; font-size: 10px; font-weight: 700; }
+        .nav-item.active { color: var(--nio-blue); }
+        .nav-item i { font-size: 22px; display: block; margin-bottom: 6px; }
+    </style>
+</head>
+<body>
+
+    <section class="header-slider">
+        <div class="swiper swiper-container">
+            <div class="swiper-wrapper">
+                <div class="swiper-slide"><img src="roletanio1.jpg" alt="Slide 1"></div>
+                <div class="swiper-slide"><img src="roletanio2.jpg" alt="Slide 2"></div>
+                <div class="swiper-slide"><img src="roletanio3.jpg" alt="Slide 3"></div>
+            </div>
+        </div>
+    </section>
+
+    <div class="action-grid">
+        <a href="deposito.html" class="action-item"><div class="icon-box"><i class="fa-solid fa-bolt-lightning"></i></div><span>Recarga</span></a>
+        <a href="saque.html" class="action-item"><div class="icon-box"><i class="fa-solid fa-receipt"></i></div><span>Retirada</span></a>
+        <a href="https://chat.whatsapp.com/E9hfrn1TdEhJvOFVZZzNoR" class="action-item" target="_blank"><div class="icon-box"><i class="fa-solid fa-network-wired"></i></div><span>Grupo</span></a>
+        <a href="http://wa.me/5521965141548" class="action-item" target="_blank"><div class="icon-box"><i class="fa-solid fa-headset"></i></div><span>Suporte</span></a>
+    </div>
+
+    <div class="tabs-container">
+        <div class="tab-btn active">ESTABILIZAR</div>
+        <div class="tab-btn">AVANÇADO</div>
+    </div>
+
+    <div class="plans-list" id="render-plans"></div>
+
+    <nav class="bottom-nav">
+        <a href="home.html" class="nav-item active"><i class="fa-solid fa-house-chimney"></i>HOME</a>
+        <a href="ativos.html" class="nav-item"><i class="fa-solid fa-microchip"></i>ATIVOS</a>
+        <a href="indicacao.html" class="nav-item"><i class="fa-solid fa-share-nodes"></i>CONVITE</a>
+        <a href="perfil.html" class="nav-item"><i class="fa-solid fa-user-astronaut"></i>PERFIL</a>
+    </nav>
+
+    <script src="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, getDoc, updateDoc, collection, addDoc, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDyahOcB_wXbU_E0IzEXHBMsyw8uqJR2Es",
+            authDomain: "ironpay-cc5e1.firebaseapp.com",
+            projectId: "ironpay-cc5e1",
+            storageBucket: "ironpay-cc5e1.firebasestorage.app",
+            messagingSenderId: "283629903594",
+            appId: "1:283629903594:web:07b39ed18372335c758193"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        const planos = [
+            { id: 1, nome: "NIO Start Green", valor: 30, img: "Plano1.jpg", badge: "Popular" },
+            { id: 2, nome: "NIO Power Eco", valor: 50, img: "plano2.jpg", badge: "Premium" },
+            { id: 3, nome: "NIO Vision Plus", valor: 100, img: "plano3.jpg", badge: "Premium" },
+            { id: 4, nome: "NIO Horizon Pro", valor: 200, img: "plano4.jpg", badge: "Premium" },
+            { id: 5, nome: "NIO Ultimate G7", valor: 400, img: "plano5.jpg", badge: "Premium" },
+            { id: 6, nome: "NIO Cyber Charge", valor: 600, img: "plano6.jpg", badge: "Premium" },
+            { id: 7, nome: "NIO Galaxy Max", valor: 800, img: "plano7.jpg", badge: "Premium" }
+        ];
+
+        function renderPlanos() {
+            const container = document.getElementById('render-plans');
+            container.innerHTML = '';
+            planos.forEach(plano => {
+                const lucroDiario = plano.valor * 0.20;
+                const lucroTotal = lucroDiario * 15;
+                const badgeClass = plano.id === 1 ? 'popular' : '';
+                container.innerHTML += `
+                    <div class="plan-card">
+                        <div class="plan-img-container">
+                            <span class="plan-badge ${badgeClass}">${plano.badge}</span>
+                            <img src="${plano.img}" alt="${plano.nome}">
+                        </div>
+                        <div class="plan-info">
+                            <div class="plan-header">
+                                <h2 class="plan-title">${plano.nome}</h2>
+                                <span class="plan-price">R$ ${plano.valor}</span>
+                            </div>
+                            <div class="stats-grid">
+                                <div class="stat-box"><h4>R$ ${lucroDiario.toFixed(2)}</h4><p>Lucro Diário</p></div>
+                                <div class="stat-box"><h4>R$ ${lucroTotal.toFixed(2)}</h4><p>Retorno Final</p></div>
+                                <div class="stat-box"><h4>15 dias</h4><p>Ciclo</p></div>
+                            </div>
+                            <button class="btn-buy" onclick="comprarPlano(${plano.id}, ${plano.valor})">Investir Agora</button>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        // LÓGICA DE COMISSÃO EM CASCATA (3 NÍVEIS)
+        async function pagarComissoes(padrinhoId, valorPlano, nivel) {
+            if (!padrinhoId || padrinhoId === "direto" || nivel > 3) return;
+
+            const padrinhoRef = doc(db, "users", padrinhoId);
+            const padrinhoSnap = await getDoc(padrinhoRef);
+
+            if (padrinhoSnap.exists()) {
+                let porcentagem = 0;
+                if (nivel === 1) porcentagem = 0.15; // 15%
+                if (nivel === 2) porcentagem = 0.03; // 3%
+                if (nivel === 3) porcentagem = 0.01; // 1%
+
+                const comissao = valorPlano * porcentagem;
+
+                // Atualiza saldo do padrinho e registra ganho
+                await updateDoc(padrinhoRef, {
+                    saldo: increment(comissao),
+                    totalGanhos: increment(comissao)
+                });
+
+                console.log(`Comissão Nível ${nivel} de R$ ${comissao} paga para: ${padrinhoId}`);
+
+                // Busca o próximo padrinho (avô/bisavô) para continuar a cascata
+                const proximoPadrinhoId = padrinhoSnap.data().indicadoPor;
+                await pagarComissoes(proximoPadrinhoId, valorPlano, nivel + 1);
+            }
+        }
+
+        window.comprarPlano = async (id, preco) => {
+            onAuthStateChanged(auth, async (user) => {
+                if (!user) {
+                    Swal.fire("Erro", "Você precisa estar logado para investir.", "error");
+                    return;
+                }
+
+                const userRef = doc(db, "users", user.uid);
+                const userSnap = await getDoc(userRef);
+
+                if (!userSnap.exists()) return;
+
+                const userData = userSnap.data();
+                const saldoAtual = userData.saldo || 0;
+
+                if (saldoAtual < preco) {
+                    Swal.fire({
+                        title: "Saldo Insuficiente",
+                        text: "Você não possui saldo para realizar este investimento.",
+                        icon: "warning",
+                        confirmButtonColor: "#00a3e0"
+                    });
+                    return;
+                }
+
+                Swal.fire({
+                    title: 'Confirmar Investimento?',
+                    text: `Deseja investir R$ ${preco} no plano selecionado?`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#00a3e0',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'Confirmar',
+                    cancelButtonText: 'Cancelar'
+                }).then(async (result) => {
+                    if (result.isConfirmed) {
+                        try {
+                            const planoData = planos.find(p => p.id === id);
+                            
+                            // 1. Descontar saldo do comprador e marcar como VIP/Investidor
+                            await updateDoc(userRef, {
+                                saldo: increment(-preco),
+                                totalInvestido: increment(preco),
+                                isVip: true
+                            });
+
+                            // 2. Iniciar pagamento de comissões para a rede (Pai, Avô, Bisavô)
+                            if (userData.indicadoPor && userData.indicadoPor !== "direto") {
+                                await pagarComissoes(userData.indicadoPor, preco, 1);
+                            }
+
+                            // 3. Adicionar plano à coleção de ativos
+                            const agora = new Date();
+                            const proximoRendimento = new Date(agora.getTime() + 24 * 60 * 60 * 1000);
+
+                            await addDoc(collection(db, "ativos"), {
+                                userId: user.uid,
+                                planoId: id,
+                                nome: planoData.nome,
+                                valorInvestido: preco,
+                                lucroDiario: preco * 0.20,
+                                lucroTotalAcumulado: 0,
+                                dataCompra: serverTimestamp(),
+                                proximoRendimento: proximoRendimento.getTime(),
+                                cicloRestante: 15,
+                                status: "ativo"
+                            });
+
+                            Swal.fire({
+                                title: "Sucesso!",
+                                text: "Investimento realizado e comissões de rede distribuídas!",
+                                icon: "success",
+                                confirmButtonColor: "#00a3e0"
+                            }).then(() => {
+                                window.location.href = "ativos.html";
+                            });
+
+                        } catch (error) {
+                            console.error("Erro ao comprar plano:", error);
+                            Swal.fire("Erro", "Ocorreu um erro ao processar sua compra.", "error");
+                        }
+                    }
+                });
+            });
+        };
+
+        const swiper = new Swiper('.swiper-container', {
+            loop: true,
+            autoplay: { delay: 4000, disableOnInteraction: false },
+            speed: 1000
+        });
+
+        renderPlanos();
+    </script>
+</body>
+</html>

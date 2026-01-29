@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NIO - Depósito Instantâneo</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <style>
+        :root {
+            --nio-blue: #00a3e0;
+            --dark-bg: #010409;
+            --glass-card: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --nio-gradient: linear-gradient(135deg, #00a3e0 0%, #005a87 100%);
+            --active-green: #00ff88;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--dark-bg);
+            color: white;
+            background-image: radial-gradient(circle at 50% 0%, #0a1a2f 0%, transparent 70%);
+            min-height: 100vh;
+            padding-bottom: 50px;
+        }
+
+        .premium-header {
+            padding: 40px 25px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .btn-back {
+            background: var(--glass-card);
+            border: 1px solid var(--glass-border);
+            color: white;
+            width: 45px;
+            height: 45px;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+        }
+
+        .header-title h1 {
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            background: var(--nio-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+        }
+
+        .deposit-container {
+            padding: 0 25px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .balance-preview {
+            background: var(--glass-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 30px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 30px;
+            backdrop-filter: blur(20px);
+        }
+
+        .balance-preview span {
+            font-size: 12px;
+            color: rgba(255,255,255,0.5);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .balance-preview h2 {
+            font-size: 2.5rem;
+            margin-top: 10px;
+            font-weight: 800;
+        }
+
+        .amount-input-group {
+            position: relative;
+            margin-bottom: 25px;
+        }
+
+        .amount-input-group label {
+            display: block;
+            font-size: 11px;
+            color: var(--nio-blue);
+            margin-bottom: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .input-wrapper {
+            background: rgba(255,255,255,0.05);
+            border: 2px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            transition: 0.3s;
+        }
+
+        .input-wrapper:focus-within {
+            border-color: var(--nio-blue);
+            box-shadow: 0 0 20px rgba(0, 163, 224, 0.2);
+        }
+
+        .input-wrapper span {
+            font-size: 20px;
+            font-weight: 800;
+            margin-right: 10px;
+            color: var(--nio-blue);
+        }
+
+        .input-wrapper input {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 24px;
+            font-weight: 800;
+            width: 100%;
+            outline: none;
+        }
+
+        .quick-amounts {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+
+        .quick-btn {
+            background: var(--glass-card);
+            border: 1px solid var(--glass-border);
+            padding: 15px;
+            border-radius: 15px;
+            color: white;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .quick-btn:active, .quick-btn.selected {
+            background: var(--nio-blue);
+            border-color: var(--nio-blue);
+            transform: translateY(-3px);
+        }
+
+        .info-box {
+            background: rgba(0, 255, 136, 0.05);
+            border-radius: 20px;
+            padding: 15px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(0, 255, 136, 0.1);
+        }
+
+        .info-box i { color: var(--active-green); margin-top: 3px; }
+        .info-box p { font-size: 11px; line-height: 1.5; color: rgba(255,255,255,0.7); }
+
+        .btn-deposit {
+            background: var(--nio-gradient);
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 22px;
+            border-radius: 20px;
+            font-size: 16px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(0, 163, 224, 0.3);
+            transition: 0.3s;
+        }
+
+        .btn-deposit:disabled {
+            opacity: 0.5;
+            filter: grayscale(1);
+        }
+
+        .btn-deposit:active { transform: scale(0.98); }
+
+        /* --- ESTILOS PARA EXIBIÇÃO DO PIX --- */
+        #pixContainer {
+            display: none;
+            background: var(--glass-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 30px;
+            padding: 30px;
+            margin-top: 20px;
+            text-align: center;
+            animation: slideIn 0.5s ease;
+        }
+
+        .qr-wrapper {
+            background: white;
+            padding: 15px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+
+        .copy-paste-box {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--glass-border);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .copy-paste-box p {
+            font-size: 10px;
+            color: var(--nio-blue);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .pix-string {
+            font-size: 11px;
+            color: #fff;
+            word-break: break-all;
+            background: transparent;
+            border: none;
+            width: 100%;
+            text-align: center;
+        }
+
+        .btn-copy {
+            background: #fff;
+            color: #000;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0 auto;
+        }
+
+        /* Estilização Customizada do SweetAlert Toast (Visual NIO) */
+        .nio-toast-popup {
+            background: rgba(1, 4, 9, 0.95) !important;
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--nio-blue) !important;
+            border-radius: 15px !important;
+            padding: 10px 20px !important;
+            width: auto !important;
+        }
+
+        .nio-toast-title {
+            color: white !important;
+            font-size: 14px !important;
+            font-weight: 600 !important;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="premium-header">
+        <a href="home.html" class="btn-back"><i class="fa-solid fa-chevron-left"></i></a>
+        <div class="header-title"><h1>Adicionar Saldo</h1></div>
+        <div style="width: 45px;"></div>
+    </header>
+
+    <main class="deposit-container">
+        
+        <div id="depositForm">
+            <div class="balance-preview">
+                <span>Disponível para Aporte</span>
+                <h2 id="displayCurrentBalance">R$ 0,00</h2>
+            </div>
+
+            <div class="amount-input-group">
+                <label>Quanto deseja depositar?</label>
+                <div class="input-wrapper">
+                    <span>R$</span>
+                    <input type="number" id="depositAmount" placeholder="0,00" min="30">
+                </div>
+                <p style="font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 8px;">
+                    Mínimo obrigatório: <b>R$ 30,00</b>
+                </p>
+            </div>
+
+            <div class="quick-amounts">
+                <button class="quick-btn" onclick="setAmount(30)">R$ 30</button>
+                <button class="quick-btn" onclick="setAmount(50)">R$ 50</button>
+                <button class="quick-btn" onclick="setAmount(100)">R$ 100</button>
+                <button class="quick-btn" onclick="setAmount(200)">R$ 200</button>
+                <button class="quick-btn" onclick="setAmount(500)">R$ 500</button>
+                <button class="quick-btn" onclick="setAmount(1000)">R$ 1000</button>
+            </div>
+
+            <div class="info-box">
+                <i class="fa-solid fa-bolt-lightning"></i>
+                <p>Os depósitos via PIX são processados instantaneamente. O saldo ficará disponível na sua conta NIO assim que a compensação for confirmada.</p>
+            </div>
+
+            <button class="btn-deposit" id="btnSubmitDeposit" onclick="handleDeposit()">
+                Gerar PIX de Pagamento
+            </button>
+        </div>
+
+        <div id="pixContainer">
+            <h3 style="margin-bottom: 20px; font-weight: 800; color: var(--active-green);">PIX GERADO</h3>
+            
+            <div class="qr-wrapper">
+                <div id="qrcode"></div> 
+            </div>
+
+            <div class="copy-paste-box">
+                <p>Copia e Cola</p>
+                <div id="pixStringText" class="pix-string"></div>
+            </div>
+
+            <button class="btn-copy" onclick="copyPixCode()">
+                <i class="fa-solid fa-copy"></i> COPIAR CÓDIGO
+            </button>
+
+            <p style="font-size: 11px; margin-top: 25px; color: rgba(255,255,255,0.5); line-height: 1.4;">
+                Após o pagamento, seu saldo será atualizado automaticamente em instantes.
+            </p>
+        </div>
+
+    </main>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDyahOcB_wXbU_E0IzEXHBMsyw8uqJR2Es",
+            authDomain: "ironpay-cc5e1.firebaseapp.com",
+            projectId: "ironpay-cc5e1",
+            storageBucket: "ironpay-cc5e1.firebasestorage.app",
+            messagingSenderId: "283629903594",
+            appId: "1:283629903594:web:07b39ed18372335c758193"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let userUID = null;
+        let userData = null;
+        
+        const PIPEDREAM_URL = "https://eoj436mi1cazadb.m.pipedream.net";
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userUID = user.uid;
+                onSnapshot(doc(db, "users", user.uid), (docSnap) => {
+                    if (docSnap.exists()) {
+                        userData = docSnap.data();
+                        const saldo = userData.saldo || 0;
+                        document.getElementById('displayCurrentBalance').innerText = `R$ ${saldo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+                    }
+                });
+            } else {
+                window.location.href = "login.html";
+            }
+        });
+
+        window.setAmount = function(val) {
+            document.getElementById('depositAmount').value = val;
+            document.querySelectorAll('.quick-btn').forEach(b => b.classList.remove('selected'));
+            if(event) event.target.classList.add('selected');
+        }
+
+        // Função Global para Copiar com Visual NIO Minimalista
+        window.copyPixCode = function() {
+            const codeText = document.getElementById('pixStringText').innerText;
+            navigator.clipboard.writeText(codeText).then(() => {
+                const Toast = Swal.mixin({
+                    toast: true,
+                    position: 'top',
+                    showConfirmButton: false,
+                    timer: 2000,
+                    customClass: {
+                        popup: 'nio-toast-popup',
+                        title: 'nio-toast-title'
+                    }
+                });
+
+                Toast.fire({
+                    title: 'Código Copiado!'
+                });
+            });
+        }
+
+        window.handleDeposit = async function() {
+            const amount = parseFloat(document.getElementById('depositAmount').value);
+            const btn = document.getElementById('btnSubmitDeposit');
+
+            if (!amount || amount < 30) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Valor Inválido',
+                    text: 'O depósito mínimo é de R$ 30,00.',
+                    background: '#010409',
+                    color: '#fff',
+                    confirmButtonColor: '#00a3e0'
+                });
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = "GERANDO...";
+
+            try {
+                const response = await fetch(PIPEDREAM_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        userId: userUID,
+                        amount: amount,
+                        userName: userData?.nome || "Usuário NIO",
+                        userEmail: auth.currentUser.email
+                    })
+                });
+
+                const data = await response.json();
+                const brCode = data.pix_code || data.qrcode;
+
+                if (data.success && brCode) {
+                    // Ocultar Formulário e mostrar Área de Pagamento sem pop-up
+                    document.getElementById('depositForm').style.display = 'none';
+                    document.getElementById('pixContainer').style.display = 'block';
+
+                    // Inserir a string do PIX
+                    document.getElementById('pixStringText').innerText = brCode;
+
+                    // Limpar QR Code anterior se existir e gerar novo
+                    document.getElementById("qrcode").innerHTML = "";
+                    new QRCode(document.getElementById("qrcode"), {
+                        text: brCode,
+                        width: 200,
+                        height: 200,
+                        colorDark : "#000000",
+                        colorLight : "#ffffff",
+                        correctLevel : QRCode.CorrectLevel.M
+                    });
+
+                } else {
+                    throw new Error("Resposta da API inválida");
+                }
+
+            } catch (error) {
+                console.error("Erro ao processar:", error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Falha na Conexão',
+                    text: 'Não foi possível gerar o PIX agora.',
+                    background: '#010409',
+                    color: '#fff'
+                });
+                btn.disabled = false;
+                btn.innerText = "Gerar PIX de Pagamento";
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NIO - Extrato Financeiro Real</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --nio-blue: #00a3e0;
+            --dark-bg: #010409;
+            --glass-card: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --nio-gradient: linear-gradient(135deg, #00a3e0 0%, #005a87 100%);
+            --income: #00ff88;
+            --outcome: #ff4d4d;
+            --warning: #ffa500;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--dark-bg);
+            color: white;
+            /* Padding removido pois não há mais navbar inferior */
+            padding-bottom: 40px; 
+            background-image: radial-gradient(circle at 50% 100%, #0a1a2f 0%, transparent 50%);
+            min-height: 100vh;
+        }
+
+        /* BOTÃO VOLTAR */
+        .back-nav {
+            padding: 20px 25px 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .btn-back {
+            background: var(--glass-card);
+            border: 1px solid var(--glass-border);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            transition: 0.3s;
+        }
+
+        .btn-back:active {
+            transform: scale(0.9);
+        }
+
+        /* HEADER */
+        .header-statement {
+            padding: 30px 25px 20px;
+            text-align: center;
+        }
+
+        .header-statement h1 {
+            font-weight: 800;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            font-size: 1.6rem;
+            background: var(--nio-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* FILTROS RÁPIDOS */
+        .filter-scroll {
+            display: flex;
+            overflow-x: auto;
+            padding: 10px 20px 25px;
+            gap: 10px;
+            scrollbar-width: none;
+        }
+
+        .filter-scroll::-webkit-scrollbar { display: none; }
+
+        .filter-btn {
+            white-space: nowrap;
+            padding: 12px 22px;
+            border-radius: 15px;
+            background: var(--glass-card);
+            border: 1px solid var(--glass-border);
+            color: rgba(255,255,255,0.5);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .filter-btn.active {
+            background: var(--nio-blue);
+            color: white;
+            border-color: var(--nio-blue);
+            box-shadow: 0 4px 15px rgba(0, 163, 224, 0.3);
+        }
+
+        /* LISTA DE TRANSAÇÕES */
+        .timeline-container {
+            padding: 0 20px;
+            min-height: 200px;
+        }
+
+        .date-divider {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--nio-blue);
+            margin: 25px 0 15px 5px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .date-divider::after {
+            content: "";
+            height: 1px;
+            flex: 1;
+            background: var(--glass-border);
+        }
+
+        .transaction-card {
+            background: var(--glass-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 22px;
+            padding: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            backdrop-filter: blur(15px);
+            animation: slideUp 0.4s ease-out forwards;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .tx-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .tx-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        /* Categorias de Ícones */
+        .icon-deposito { background: rgba(0, 255, 136, 0.1); color: var(--income); }
+        .icon-saque { background: rgba(255, 77, 77, 0.1); color: var(--outcome); }
+        .icon-plano { background: rgba(0, 163, 224, 0.1); color: var(--nio-blue); }
+        .icon-comissao { background: rgba(212, 175, 55, 0.1); color: #d4af37; }
+
+        .tx-info h4 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .tx-info p {
+            font-size: 10px;
+            color: rgba(255,255,255,0.4);
+        }
+
+        .tx-right {
+            text-align: right;
+        }
+
+        .tx-amount {
+            font-size: 15px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+
+        .tx-status {
+            font-size: 9px;
+            text-transform: uppercase;
+            font-weight: 900;
+            padding: 2px 8px;
+            border-radius: 5px;
+            background: rgba(255,255,255,0.05);
+        }
+
+        /* ESTADOS VAZIOS E LOADING */
+        .empty-state {
+            text-align: center;
+            padding: 50px 20px;
+            color: rgba(255,255,255,0.2);
+        }
+
+        .empty-state i { font-size: 40px; margin-bottom: 15px; }
+
+    </style>
+</head>
+<body>
+
+    <nav class="back-nav">
+        <a href="perfil.html" class="btn-back">
+            <i class="fa-solid fa-chevron-left"></i>
+        </a>
+    </nav>
+
+    <header class="header-statement">
+        <h1>Meu Extrato</h1>
+        <p style="color: rgba(255,255,255,0.4); font-size: 11px;">Monitoramento de fluxo em tempo real</p>
+    </header>
+
+    <div class="filter-scroll" id="filterContainer">
+        <button class="filter-btn active" data-type="all">TUDO</button>
+        <button class="filter-btn" data-type="deposito">DEPÓSITOS</button>
+        <button class="filter-btn" data-type="saque">SAQUES</button>
+        <button class="filter-btn" data-type="comissao">COMISSÕES</button>
+        <button class="filter-btn" data-type="plano">PLANOS</button>
+    </div>
+
+    <main class="timeline-container" id="transactionsList">
+        <div class="empty-state">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+            <p>Sincronizando transações...</p>
+        </div>
+    </main>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDyahOcB_wXbU_E0IzEXHBMsyw8uqJR2Es",
+            authDomain: "ironpay-cc5e1.firebaseapp.com",
+            projectId: "ironpay-cc5e1",
+            storageBucket: "ironpay-cc5e1.firebasestorage.app",
+            messagingSenderId: "283629903594",
+            appId: "1:283629903594:web:07b39ed18372335c758193"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let currentFilter = "all";
+        let userUID = null;
+        let unsubscribe = null;
+
+        // Monitor de Autenticação
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                userUID = user.uid;
+                loadTransactions();
+            } else {
+                window.location.href = "login.html";
+            }
+        });
+
+        // Configuração de Filtros
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilter = btn.getAttribute('data-type');
+                loadTransactions(); 
+            });
+        });
+
+        function loadTransactions() {
+            const listElement = document.getElementById('transactionsList');
+            
+            // Cancela o listener anterior se existir para evitar duplicidade
+            if (unsubscribe) unsubscribe();
+
+            // Query Base: Transações do usuário ordenadas por data
+            let q;
+            
+            if (currentFilter === "all") {
+                q = query(
+                    collection(db, "transactions"),
+                    where("uid", "==", userUID),
+                    orderBy("timestamp", "desc")
+                );
+            } else {
+                q = query(
+                    collection(db, "transactions"),
+                    where("uid", "==", userUID),
+                    where("type", "==", currentFilter),
+                    orderBy("timestamp", "desc")
+                );
+            }
+
+            unsubscribe = onSnapshot(q, (snapshot) => {
+                listElement.innerHTML = "";
+                let lastDate = "";
+
+                if (snapshot.empty) {
+                    listElement.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fa-solid fa-receipt"></i>
+                            <p>Nenhuma transação encontrada nesta categoria.</p>
+                        </div>`;
+                    return;
+                }
+
+                snapshot.forEach((doc) => {
+                    const tx = doc.data();
+                    const date = tx.timestamp?.toDate() || new Date();
+                    const dateString = date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
+
+                    // Divisor de data automático
+                    if (dateString !== lastDate) {
+                        const divider = document.createElement('div');
+                        divider.className = 'date-divider';
+                        divider.innerText = dateString;
+                        listElement.appendChild(divider);
+                        lastDate = dateString;
+                    }
+
+                    renderTransactionCard(tx, listElement);
+                });
+            }, (error) => {
+                console.error("Erro ao carregar transações:", error);
+                listElement.innerHTML = `<div class="empty-state"><p>Erro ao carregar dados.</p></div>`;
+            });
+        }
+
+        function renderTransactionCard(tx, container) {
+            const card = document.createElement('div');
+            card.className = 'transaction-card';
+
+            const isIncome = ["deposito", "comissao", "bonus"].includes(tx.type);
+            const amountColor = isIncome ? "var(--income)" : "var(--outcome)";
+            const prefix = isIncome ? "+" : "-";
+            
+            let iconClass = "fa-solid fa-question";
+            if(tx.type === "deposito") iconClass = "fa-solid fa-arrow-down-long";
+            if(tx.type === "saque") iconClass = "fa-solid fa-arrow-up-long";
+            if(tx.type === "plano") iconClass = "fa-solid fa-bolt";
+            if(tx.type === "comissao") iconClass = "fa-solid fa-gift";
+
+            card.innerHTML = `
+                <div class="tx-left">
+                    <div class="tx-icon icon-${tx.type}">
+                        <i class="${iconClass}"></i>
+                    </div>
+                    <div class="tx-info">
+                        <h4>${tx.title || 'Transação'}</h4>
+                        <p>${tx.description || 'NIO Network'}</p>
+                    </div>
+                </div>
+                <div class="tx-right">
+                    <div class="tx-amount" style="color: ${amountColor};">
+                        ${prefix} R$ ${parseFloat(tx.amount).toFixed(2).replace('.', ',')}
+                    </div>
+                    <div class="tx-status" style="color: ${getStatusColor(tx.status)};">
+                        ${tx.status || 'Concluído'}
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+        }
+
+        function getStatusColor(status) {
+            const s = status?.toLowerCase();
+            if (s === 'pendente') return "var(--warning)";
+            if (s === 'confirmado' || s === 'concluído') return "var(--income)";
+            if (s === 'cancelado') return "var(--outcome)";
+            return "var(--nio-blue)";
+        }
+    </script>
+</body>
+</html>
