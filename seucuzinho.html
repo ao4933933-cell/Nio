@@ -83,7 +83,7 @@
 
         .page-title { font-size: 24px; font-weight: 300; margin-bottom: 40px; letter-spacing: 2px; color: var(--nio-blue); }
 
-        /* STATS CARDS - ANTI-BUG DE VALOR ALTO */
+        /* STATS CARDS */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -97,7 +97,7 @@
             padding: 30px;
             border-radius: 30px;
             transition: 0.3s;
-            min-width: 0; /* Impede overflow de grid */
+            min-width: 0;
         }
 
         .stat-card:hover { border-color: var(--nio-blue); background: rgba(0, 163, 224, 0.03); }
@@ -107,7 +107,7 @@
             font-size: clamp(18px, 2vw, 26px); 
             font-weight: 700; 
             color: #fff; 
-            word-break: break-all; /* Garante que valores imensos não estourem o card */
+            word-break: break-all;
         }
 
         /* TABLES & SECTIONS */
@@ -141,38 +141,12 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            gap: 5px;
         }
 
         .btn-approve { background: var(--success); color: #000; }
         .btn-reject { background: var(--danger); color: #fff; }
         .btn-edit { background: var(--nio-blue); color: #fff; }
-
-        /* USER DETAILS BOX */
-        .user-panel {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-            gap: 40px;
-        }
-
-        .info-card {
-            background: rgba(0,0,0,0.2);
-            padding: 25px;
-            border-radius: 20px;
-            border: 1px solid var(--glass-border);
-        }
-
-        .editable-field {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-            gap: 10px;
-        }
-
-        .editable-field label { font-size: 12px; color: gray; flex-shrink: 0; }
-        .editable-field span { font-weight: 600; cursor: pointer; color: var(--nio-blue); text-align: right; word-break: break-all; }
-        .editable-field span:hover { text-decoration: underline; color: var(--nio-neon); }
 
         .search-input {
             width: 100%;
@@ -186,8 +160,6 @@
             outline: none;
             transition: 0.4s;
         }
-
-        .search-input:focus { border-color: var(--nio-blue); box-shadow: 0 0 30px var(--accent-glow); }
 
         .hidden { display: none !important; }
 
@@ -235,10 +207,19 @@
         </section>
 
         <section id="financeiro" class="hidden">
-            <h1 class="page-title">Centro de Pagamentos</h1>
+            <h1 class="page-title">Centro de Pagamentos (PIX)</h1>
             <div class="admin-section">
                 <table>
-                    <thead><tr><th>Investidor</th><th>Valor Requisitado</th><th>Chave Pix</th><th>Status</th><th>Operação</th></tr></thead>
+                    <thead>
+                        <tr>
+                            <th>Investidor</th>
+                            <th>Valor Bruto</th>
+                            <th>Líquido (-10%)</th>
+                            <th>Tipo Chave</th>
+                            <th>Chave Pix</th>
+                            <th>Operação</th>
+                        </tr>
+                    </thead>
                     <tbody id="table-withdrawals"></tbody>
                 </table>
             </div>
@@ -253,19 +234,11 @@
 
             <div id="userDetails" class="admin-section hidden">
                 <div class="user-panel">
-                    <div class="info-card">
-                        <div class="editable-field"><label>UID</label><span id="u-uid">-</span></div>
-                        <div class="editable-field"><label>E-mail</label><span id="u-email">-</span></div>
-                        <div class="editable-field"><label>Saldo Disponível</label><span id="u-balance" onclick="editData('saldo', 'Saldo')">R$ 0,00</span></div>
-                        <div class="editable-field"><label>Lucro Acumulado</label><span id="u-profit" onclick="editData('totalGanhos', 'Ganhos Totais')">R$ 0,00</span></div>
-                    </div>
-                    <div class="info-card">
-                        <div class="editable-field"><label>Planos Ativos</label><span id="u-plans-count">0</span></div>
-                        <div class="editable-field"><label>Status Contratado</label><span id="u-status-contratado">-</span></div>
-                        <div style="margin-top: 30px; display: flex; gap: 15px; flex-wrap: wrap;">
-                            <button id="btn-toggle-contratado" class="btn-action" style="flex: 1; padding: 15px;" onclick="toggleContratadoStatus()"></button>
-                            <button class="btn-action btn-reject" style="flex: 1; padding: 15px;" onclick="banUser()">Bloquear Acesso</button>
-                        </div>
+                    <div class="info-card" style="background: rgba(255,255,255,0.02); padding: 25px; border-radius: 20px; border: 1px solid var(--glass-border);">
+                        <div class="editable-field" style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);"><label style="color: gray; font-size: 12px;">UID</label><span id="u-uid" style="font-weight: 600;">-</span></div>
+                        <div class="editable-field" style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);"><label style="color: gray; font-size: 12px;">E-mail</label><span id="u-email" style="font-weight: 600;">-</span></div>
+                        <div class="editable-field" style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer;" onclick="editData('saldo', 'Saldo')"><label style="color: gray; font-size: 12px;">Saldo Principal</label><span id="u-balance" style="color: var(--nio-blue);">R$ 0,00</span></div>
+                        <div class="editable-field" style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer;" onclick="editData('saldoLucro', 'Saldo de Lucro')"><label style="color: gray; font-size: 12px;">Saldo de Lucro</label><span id="u-profit" style="color: var(--success);">R$ 0,00</span></div>
                     </div>
                 </div>
             </div>
@@ -275,7 +248,7 @@
             <h1 class="page-title">Membros em Contrato</h1>
             <div class="admin-section">
                 <table>
-                    <thead><tr><th>Membro</th><th>Saldo em Conta</th><th>Total Lucros</th><th>Ações de Contrato</th></tr></thead>
+                    <thead><tr><th>Membro</th><th>Saldo Principal</th><th>Saldo Lucro</th><th>Ações de Contrato</th></tr></thead>
                     <tbody id="table-contratados"></tbody>
                 </table>
             </div>
@@ -284,7 +257,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, query, where, getDocs, doc, updateDoc, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, query, where, getDocs, doc, updateDoc, onSnapshot, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
@@ -301,11 +274,12 @@
         const auth = getAuth(app);
 
         const ADMIN_EMAIL = "ao981017448@gmail.com";
+        const MAKE_WEBHOOK_URL = "https://hook.us2.make.com/1i8cv3gfh95c5oyhw8h3yanjxgqchq7r";
         let currentSearchUid = null;
 
         onAuthStateChanged(auth, (user) => {
             if (!user || user.email !== ADMIN_EMAIL) {
-                window.location.href = "index.html";
+                window.location.href = "login.html";
                 return;
             }
             document.getElementById('loading-overlay').classList.add('hidden');
@@ -320,11 +294,11 @@
         };
 
         function formatBRL(val) {
-            return (val || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return (val || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         }
 
         function initCore() {
-            // Stats Real-time
+            // Dashboard & Usuarios Real-time
             onSnapshot(collection(db, "users"), (snap) => {
                 let bal = 0, prof = 0;
                 const tbody = document.getElementById('table-new-users');
@@ -335,19 +309,17 @@
                 snap.forEach(u => {
                     const d = u.data();
                     bal += (d.saldo || 0);
-                    prof += (d.totalGanhos || 0);
+                    prof += (d.saldoLucro || 0);
 
-                    // Dashboard List
-                    tbody.innerHTML += `<tr><td>${d.email}</td><td>${d.indicadoPor || 'Direto'}</td><td>${new Date(d.dataRegistro).toLocaleDateString()}</td><td>${formatBRL(d.saldo)}</td></tr>`;
+                    tbody.innerHTML += `<tr><td>${d.email}</td><td>${d.indicadoPor || 'Direto'}</td><td>${d.dataRegistro || '-'}</td><td>${formatBRL(d.saldo)}</td></tr>`;
 
-                    // Contratados List
                     if(d.contratado) {
                         contratadosBody.innerHTML += `
                             <tr>
                                 <td>${d.email}</td>
                                 <td>${formatBRL(d.saldo)}</td>
-                                <td>${formatBRL(d.totalGanhos)}</td>
-                                <td><button class="btn-action btn-reject" onclick="removeFromContratado('${u.id}')">Encerrar Contrato</button></td>
+                                <td>${formatBRL(d.saldoLucro)}</td>
+                                <td><button class="btn-action btn-reject" onclick="toggleContrato('${u.id}', false)">Encerrar</button></td>
                             </tr>`;
                     }
                 });
@@ -357,23 +329,25 @@
                 document.getElementById('stat-users-today').innerText = snap.size;
             });
 
-            // Saques Pendentes
-            onSnapshot(query(collection(db, "saques"), where("status", "==", "pendente")), (snap) => {
+            // GESTÃO DE SAQUES (Coleção solicitacoes_saque)
+            onSnapshot(query(collection(db, "solicitacoes_saque"), where("status", "==", "pendente")), (snap) => {
                 const tbody = document.getElementById('table-withdrawals');
                 let totalPendente = 0;
                 tbody.innerHTML = "";
+                
                 snap.forEach(s => {
                     const d = s.data();
-                    totalPendente += d.valor;
+                    totalPendente += d.valorBruto;
                     tbody.innerHTML += `
                         <tr>
-                            <td>${d.email}</td>
-                            <td style="color: var(--nio-blue); font-weight: bold;">${formatBRL(d.valor)}</td>
-                            <td>${d.pix}</td>
-                            <td><span style="color: orange; font-weight: bold; font-size: 10px;">AGUARDANDO</span></td>
+                            <td><b>${d.nomeUsuario}</b><br><small>${d.emailUsuario}</small></td>
+                            <td>${formatBRL(d.valorBruto)}</td>
+                            <td style="color: var(--success); font-weight: bold;">${formatBRL(d.valorLiquido)}</td>
+                            <td><span class="badge">${d.tipoChave}</span></td>
+                            <td style="color: var(--nio-blue);">${d.chavePix}</td>
                             <td>
-                                <button class="btn-action btn-approve" onclick="manageSaque('${s.id}', 'aprovado')">Confirmar</button>
-                                <button class="btn-action btn-reject" onclick="manageSaque('${s.id}', 'rejeitado')">Recusar</button>
+                                <button class="btn-action btn-approve" onclick="aprovarSaque('${s.id}', ${JSON.stringify(d).replace(/"/g, '&quot;')})"><i class="fa-solid fa-check"></i></button>
+                                <button class="btn-action btn-reject" onclick="rejeitarSaque('${s.id}', '${d.uid}', ${d.valorBruto})"><i class="fa-solid fa-xmark"></i></button>
                             </td>
                         </tr>`;
                 });
@@ -381,15 +355,93 @@
             });
         }
 
+        // FUNÇÃO APROVAR SAQUE + WEBHOOK MAKE
+        window.aprovarSaque = async (docId, data) => {
+            const confirm = await Swal.fire({
+                title: 'Aprovar Pagamento?',
+                text: `Confirmar envio de ${formatBRL(data.valorLiquido)} para ${data.emailUsuario}?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#00ff88',
+                confirmButtonText: 'Sim, Pagar via PIX'
+            });
+
+            if (!confirm.isConfirmed) return;
+
+            try {
+                // 1. Atualizar Status na solicitação
+                await updateDoc(doc(db, "solicitacoes_saque", docId), { 
+                    status: "aprovado",
+                    dataProcessamento: serverTimestamp()
+                });
+
+                // 2. Atualizar Status no histórico do usuário
+                const qTx = query(collection(db, "transactions"), where("uid", "==", data.uid), where("status", "==", "Aguardando Aprovação"));
+                const snapTx = await getDocs(qTx);
+                snapTx.forEach(async (tDoc) => {
+                    await updateDoc(doc(db, "transactions", tDoc.id), { status: "Concluído" });
+                });
+
+                // 3. Enviar para o Webhook do Make.com
+                await fetch(MAKE_WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        event: "SAQUE_APROVADO",
+                        ...data,
+                        timestamp: new Date().toISOString()
+                    })
+                });
+
+                Swal.fire('Sucesso!', 'Saque aprovado e enviado para processamento.', 'success');
+            } catch (e) {
+                console.error(e);
+                Swal.fire('Erro', 'Falha ao processar saque.', 'error');
+            }
+        };
+
+        // FUNÇÃO REJEITAR SAQUE (Estorna o valor)
+        window.rejeitarSaque = async (docId, uid, valorBruto) => {
+            const { value: motivo } = await Swal.fire({
+                title: 'Rejeitar Saque?',
+                input: 'text',
+                inputLabel: 'Motivo da rejeição',
+                inputPlaceholder: 'Dados PIX incorretos...',
+                showCancelButton: true
+            });
+
+            if (motivo) {
+                try {
+                    // 1. Atualizar solicitação
+                    await updateDoc(doc(db, "solicitacoes_saque", docId), { status: "rejeitado", motivo: motivo });
+                    
+                    // 2. Estornar saldoLucro ao usuário
+                    const userRef = doc(db, "users", uid);
+                    const userSnap = await getDocs(query(collection(db, "users"), where("__name__", "==", uid)));
+                    const currentProf = userSnap.docs[0].data().saldoLucro || 0;
+                    await updateDoc(userRef, { saldoLucro: currentProf + valorBruto });
+
+                    // 3. Atualizar histórico
+                    const qTx = query(collection(db, "transactions"), where("uid", "==", uid), where("status", "==", "Aguardando Aprovação"));
+                    const snapTx = await getDocs(qTx);
+                    snapTx.forEach(async (tDoc) => {
+                        await updateDoc(doc(db, "transactions", tDoc.id), { status: "Rejeitado", description: "Estornado: " + motivo });
+                    });
+
+                    Swal.fire('Rejeitado', 'O valor foi devolvido ao usuário.', 'info');
+                } catch (e) {
+                    Swal.fire('Erro', 'Falha ao estornar.', 'error');
+                }
+            }
+        };
+
         window.searchUser = async () => {
             const email = document.getElementById('searchInput').value;
-            if(!email) return;
-
             const q = query(collection(db, "users"), where("email", "==", email));
             const snap = await getDocs(q);
 
             if(snap.empty) {
-                Swal.fire("NIO Error", "Membro não localizado na rede.", "error");
+                Swal.fire("Erro", "Membro não encontrado.", "error");
                 return;
             }
 
@@ -400,13 +452,7 @@
             document.getElementById('u-uid').innerText = uDoc.id;
             document.getElementById('u-email').innerText = d.email;
             document.getElementById('u-balance').innerText = formatBRL(d.saldo);
-            document.getElementById('u-profit').innerText = formatBRL(d.totalGanhos);
-            document.getElementById('u-status-contratado').innerText = d.contratado ? "CONTRATO ATIVO" : "SEM CONTRATO";
-            
-            const btnC = document.getElementById('btn-toggle-contratado');
-            btnC.innerText = d.contratado ? "REMOVER DOS CONTRATADOS" : "ADICIONAR AOS CONTRATADOS";
-            btnC.className = d.contratado ? "btn-action btn-reject" : "btn-action btn-approve";
-
+            document.getElementById('u-profit').innerText = formatBRL(d.saldoLucro);
             document.getElementById('userDetails').classList.remove('hidden');
         };
 
@@ -414,56 +460,37 @@
             const { value: newVal } = await Swal.fire({
                 title: `Ajustar ${label}`,
                 input: 'number',
-                inputLabel: 'Use ponto para decimais (ex: 150.50)',
-                showCancelButton: true,
                 background: '#02060d',
-                color: '#fff',
-                confirmButtonColor: '#00a3e0'
+                color: '#fff'
             });
 
-            if (newVal !== undefined && newVal !== "") {
-                const numericVal = parseFloat(parseFloat(newVal).toFixed(2)); // Força 2 casas decimais
-                await updateDoc(doc(db, "users", currentSearchUid), { [field]: numericVal });
-                Swal.fire("NIO Cloud", "Banco de dados atualizado com sucesso.", "success");
+            if (newVal) {
+                await updateDoc(doc(db, "users", currentSearchUid), { [field]: parseFloat(newVal) });
+                Swal.fire("Sucesso", "Dados atualizados.", "success");
                 searchUser(); 
             }
         };
 
-        window.toggleContratadoStatus = async () => {
-            const snap = await getDocs(query(collection(db, "users"), where("email", "==", document.getElementById('u-email').innerText)));
-            const isCurrentlyContratado = snap.docs[0].data().contratado;
-
-            await updateDoc(doc(db, "users", currentSearchUid), { contratado: !isCurrentlyContratado });
-            Swal.fire("NIO Cloud", "Status de contrato atualizado.", "success");
-            searchUser();
-        };
-
-        window.removeFromContratado = async (id) => {
-            await updateDoc(doc(db, "users", id), { contratado: false });
-            Swal.fire("NIO Cloud", "Membro removido da aba de contratados.", "info");
-        };
-
-        window.manageSaque = async (id, status) => {
-            await updateDoc(doc(db, "saques", id), { status: status });
-            Swal.fire("NIO Fin", `Saque marcado como ${status}.`, "success");
+        window.toggleContrato = async (uid, status) => {
+            await updateDoc(doc(db, "users", uid), { contratado: status });
+            Swal.fire("Contrato", "Status atualizado.", "success");
         };
 
         window.banUser = async () => {
-            Swal.fire({
-                title: "Confirmar Bloqueio?",
-                text: "O investidor não conseguirá mais entrar na conta.",
+            const confirm = await Swal.fire({
+                title: "Bloquear Membro?",
                 icon: "warning",
                 showCancelButton: true,
                 confirmButtonColor: "#ff4d4d",
-                cancelButtonColor: "#3085d6",
-                confirmButtonText: "Sim, bloquear!"
-            }).then(async (result) => {
-                if (result.isConfirmed) {
-                    await updateDoc(doc(db, "users", currentSearchUid), { banido: true });
-                    Swal.fire("NIO Security", "Usuário banido do sistema.", "success");
-                }
+                confirmButtonText: "Sim, Banir!"
             });
+
+            if (confirm.isConfirmed) {
+                await updateDoc(doc(db, "users", currentSearchUid), { banido: true });
+                Swal.fire("Banido", "Acesso bloqueado.", "success");
+            }
         };
+
     </script>
 </body>
 </html>
