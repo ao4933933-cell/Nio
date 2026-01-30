@@ -142,7 +142,6 @@
 
         .btn-login-link b { color: var(--nio-blue); }
 
-        /* Estilo customizado para o Alerta */
         .nio-swal-popup {
             background: rgba(10, 26, 47, 0.98) !important;
             backdrop-filter: blur(20px) !important;
@@ -205,7 +204,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, collection, query, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
           apiKey: "AIzaSyDyahOcB_wXbU_E0IzEXHBMsyw8uqJR2Es",
@@ -234,7 +233,6 @@
             });
         };
 
-        // --- LÓGICA DE CAPTURA DO LINK DE INDICAÇÃO ---
         const urlParams = new URLSearchParams(window.location.search);
         const refCode = urlParams.get('ref');
         if (refCode) {
@@ -252,9 +250,8 @@
             const emailConfirm = document.getElementById('confirmEmail').value;
             const pass = document.getElementById('regPass').value;
             const confirm = document.getElementById('confirmPass').value;
-            const inviter = document.getElementById('inviteCode').value;
+            const shortCode = document.getElementById('inviteCode').value;
 
-            // Validações
             if(email !== emailConfirm) {
                 nioNotify('Erro', 'Os e-mails não coincidem!', 'error');
                 return;
@@ -272,27 +269,41 @@
 
             const btn = document.getElementById('btnSubmit');
             btn.disabled = true;
-            btn.innerText = "CRIANDO CONTA...";
+            btn.innerText = "VALIDANDO CONVITE...";
 
             try {
-                // Registro via E-mail e Senha no Firebase Auth
+                let finalSponsorId = "direto";
+
+                // --- LÓGICA DE IDENTIFICAÇÃO DO PADRINHO PELO CÓDIGO CURTO ---
+                if (shortCode && shortCode !== "direto") {
+                    const usersRef = collection(db, "users");
+                    const querySnapshot = await getDocs(query(usersRef));
+                    
+                    querySnapshot.forEach((docSnap) => {
+                        // Verifica se o ID completo do documento começa com os 8 caracteres fornecidos
+                        if (docSnap.id.substring(0, 8) === shortCode) {
+                            finalSponsorId = docSnap.id; 
+                        }
+                    });
+                }
+
+                btn.innerText = "CRIANDO CONTA...";
+
                 const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
                 const user = userCredential.user;
 
-                // --- GRAVAÇÃO DOS DADOS NO FIRESTORE ---
-                // Adicionamos todos os campos necessários para o sistema de 3 níveis
                 await setDoc(doc(db, "users", user.uid), {
-                    nome: name,                      // Nome para a lista da rede
+                    nome: name,
                     email: email,
-                    userId: user.uid,                // Campo userId compatível com o extrato
-                    uid: user.uid,                   // UID duplicado para segurança
-                    indicadoPor: inviter || "direto", // Link para o Nível 1
-                    saldo: 0,                        // Saldo de depósitos
-                    saldoLucro: 0,                   // ONDE VAI CAIR A COMISSÃO (Nível 1, 2 e 3)
-                    totalInvestido: 0,               // Valor em máquinas
-                    totalComissaoRede: 0,            // Contador histórico de lucros da rede
-                    totalGanhos: 0,                  // Lucro total (Máquinas + Rede)
-                    dataRegistro: serverTimestamp(), // Data oficial do servidor
+                    userId: user.uid,
+                    uid: user.uid,
+                    indicadoPor: finalSponsorId, // Salva o UID REAL (longo) para manter a rede conectada
+                    saldo: 0,
+                    saldoLucro: 0,
+                    totalInvestido: 0,
+                    totalComissaoRede: 0,
+                    totalGanhos: 0,
+                    dataRegistro: serverTimestamp(),
                     isVip: false,
                     status: "ativo"
                 });
@@ -304,10 +315,8 @@
             } catch (error) {
                 console.error(error);
                 let msg = "Erro ao criar conta. Verifique os dados.";
-                
                 if(error.code === 'auth/email-already-in-use') msg = "Este e-mail já está registrado!";
                 if(error.code === 'auth/invalid-email') msg = "O formato do e-mail é inválido!";
-                if(error.code === 'auth/weak-password') msg = "A senha é muito fraca!";
                 
                 nioNotify('Falha', msg, 'error');
                 btn.disabled = false;
