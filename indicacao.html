@@ -330,9 +330,12 @@
             if (user) {
                 currentUser = user;
                 
-                // Gerar link de convite baseado no UID do usuário
+                // Gerar código de convite encurtado (apenas os 8 primeiros caracteres do UID)
+                const shortCode = user.uid.substring(0, 8).toUpperCase();
+                
+                // Gerar link de convite baseado no código curto
                 const baseUrl = window.location.origin;
-                const link = `${baseUrl}/registro.html?ref=${user.uid}`;
+                const link = `${baseUrl}/registro.html?ref=${shortCode}`;
                 
                 document.getElementById('inviteLinkDisplay').innerText = link;
                 document.getElementById('qrCodeBox').innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${link}" alt="QR Code NIO">`;
