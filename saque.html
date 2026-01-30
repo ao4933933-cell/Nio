@@ -264,6 +264,8 @@
             <div class="pix-type-selector">
                 <div class="type-option active" onclick="selectPixType('CPF', this)">CPF</div>
                 <div class="type-option" onclick="selectPixType('E-MAIL', this)">E-MAIL</div>
+                <div class="type-option" onclick="selectPixType('TELEFONE', this)">TELEFONE</div>
+                <div class="type-option" onclick="selectPixType('CHAVE_ALEATORIA', this)">ALEATÓRIA</div>
             </div>
         </div>
 
@@ -288,7 +290,7 @@
         <div class="rules-list">
             <p><i class="fa-solid fa-triangle-exclamation" style="color: var(--warning);"></i> Somente o Saldo de Lucros (rendimentos) pode ser sacado.</p>
             <p><i class="fa-solid fa-percent" style="color: var(--warning);"></i> Taxa de administração fixa de 10% sobre o valor do resgate.</p>
-            <p><i class="fa-solid fa-circle-info"></i> Pagamentos realizados via PIX em até 24 horas úteis após a aprovação.</p>
+            <p><i class="fa-solid fa-circle-info"></i> Pagamentos realizados via PIX após aprovação manual no painel administrativo.</p>
             <p><i class="fa-solid fa-shield-check" style="color: var(--success);"></i> Transação protegida por criptografia NIO Secure Protocol.</p>
         </div>
 
@@ -313,7 +315,8 @@
         const auth = getAuth(app);
 
         let userUID = null;
-        let currentSaldoLucro = 0; // Alterado para focar no lucro
+        let userDataGlobal = null;
+        let currentSaldoLucro = 0; 
         let selectedPixType = 'CPF';
 
         window.selectPixType = function(type, el) {
@@ -329,10 +332,18 @@
                 label.innerText = "Informe seu CPF";
                 input.placeholder = "000.000.000-00";
                 icon.className = "fa-solid fa-fingerprint";
-            } else {
+            } else if(type === 'E-MAIL') {
                 label.innerText = "Informe seu E-mail";
                 input.placeholder = "seuemail@exemplo.com";
                 icon.className = "fa-solid fa-envelope";
+            } else if(type === 'TELEFONE') {
+                label.innerText = "Informe seu Telefone";
+                input.placeholder = "(00) 00000-0000";
+                icon.className = "fa-solid fa-phone";
+            } else {
+                label.innerText = "Informe a Chave Aleatória";
+                input.placeholder = "Chave PIX";
+                icon.className = "fa-solid fa-key";
             }
         }
 
@@ -340,10 +351,12 @@
             if (user) {
                 userUID = user.uid;
                 checkTimeWindow();
-                // Monitorando saldoLucro em tempo real
+                
+                // Monitorando dados do usuário em tempo real
                 onSnapshot(doc(db, "users", user.uid), (docSnap) => {
                     if (docSnap.exists()) {
-                        currentSaldoLucro = docSnap.data().saldoLucro || 0; // Busca do campo correto
+                        userDataGlobal = docSnap.data();
+                        currentSaldoLucro = userDataGlobal.saldoLucro || 0; 
                         document.getElementById('userBalance').innerText = `R$ ${currentSaldoLucro.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
                     }
                 });
@@ -361,7 +374,7 @@
             
             if (hour < 10 || hour >= 17) {
                 btn.disabled = true;
-                btn.innerText = "FORA DO HORÁRIO";
+                btn.innerText = "SISTEMA FECHADO";
                 notice.style.background = "rgba(255, 204, 0, 0.1)";
                 notice.style.borderColor = "rgba(255, 204, 0, 0.3)";
                 msg.innerHTML = `O sistema de resgates opera exclusivamente entre <span class="time-badge">10:00</span> e <span class="time-badge">17:00</span> para auditoria de segurança.`;
@@ -394,23 +407,26 @@
 
             const confirmResult = await Swal.fire({
                 title: 'Confirmar Resgate?',
-                html: `Valor solicitado: <b>R$ ${amount.toFixed(2)}</b><br>` +
-                     `Taxa administrativa (10%): <span style="color: #ff4d4d">- R$ ${tax.toFixed(2)}</span><br>` +
-                     `Você receberá: <b style="color: #00ff88">R$ ${netAmount.toFixed(2)}</b>`,
+                html: `<div style="text-align: left; font-size: 14px; padding: 10px;">` +
+                     `Valor solicitado: <b>R$ ${amount.toFixed(2)}</b><br>` +
+                     `Taxa ADM (10%): <span style="color: #ff4d4d">- R$ ${tax.toFixed(2)}</span><br><br>` +
+                     `<b>Total a receber: <span style="color: #00ff88">R$ ${netAmount.toFixed(2)}</span></b><br>` +
+                     `<hr style="opacity: 0.1; margin: 10px 0;">` +
+                     `Chave PIX (${selectedPixType}): <br><b>${pix}</b></div>`,
                 icon: 'question',
                 showCancelButton: true,
                 background: '#010409',
                 color: '#fff',
                 confirmButtonColor: '#00a3e0',
                 cancelButtonColor: '#333',
-                confirmButtonText: 'Confirmar',
-                cancelButtonText: 'Cancelar'
+                confirmButtonText: 'Confirmar Pedido',
+                cancelButtonText: 'Revisar'
             });
 
             if (!confirmResult.isConfirmed) return;
 
             btn.disabled = true;
-            btn.innerText = "VALIDANDO...";
+            btn.innerText = "PROCESSANDO...";
 
             try {
                 const userRef = doc(db, "users", userUID);
@@ -419,34 +435,51 @@
                     const userDoc = await transaction.get(userRef);
                     if (!userDoc.exists()) throw "Usuário não encontrado!";
                     
-                    const newBalanceLucro = (userDoc.data().saldoLucro || 0) - amount; // Deduzindo do saldoLucro
-                    if (newBalanceLucro < 0) throw "Saldo de lucro insuficiente no processamento!";
+                    const newBalanceLucro = (userDoc.data().saldoLucro || 0) - amount; 
+                    if (newBalanceLucro < 0) throw "Saldo insuficiente!";
 
-                    // Atualiza apenas o campo saldoLucro
+                    // 1. Deduz o saldo do usuário imediatamente
                     transaction.update(userRef, { saldoLucro: newBalanceLucro });
 
-                    const txRef = collection(db, "transactions");
-                    await addDoc(txRef, {
+                    // 2. Cria a solicitação para o PAINEL ADMINISTRATIVO
+                    const adminSolicitacaoRef = collection(db, "solicitacoes_saque");
+                    await addDoc(adminSolicitacaoRef, {
+                        uid: userUID,
+                        nomeUsuario: userDataGlobal.nome || "Usuário NIO",
+                        emailUsuario: userDataGlobal.email || "Sem e-mail",
+                        valorBruto: amount,
+                        taxa: tax,
+                        valorLiquido: netAmount,
+                        chavePix: pix,
+                        tipoChave: selectedPixType,
+                        dataSolicitacao: serverTimestamp(),
+                        status: "pendente", // O Admin mudará para "aprovado" ou "rejeitado"
+                        categoria: "Saque de Lucros",
+                        metodo: "PIX"
+                    });
+
+                    // 3. Registra no extrato do usuário para acompanhamento
+                    const userHistoryRef = collection(db, "transactions");
+                    await addDoc(userHistoryRef, {
                         uid: userUID,
                         amountRaw: amount,      
-                        tax: tax,               
                         amountNet: netAmount,   
                         type: "saque_lucro",
-                        status: "Pendente",
+                        status: "Aguardando Aprovação",
                         pixKey: pix,
                         pixType: selectedPixType,
                         title: "Resgate de Lucros",
-                        description: `Bruto: R$${amount.toFixed(2)} | Líquido: R$${netAmount.toFixed(2)}`,
+                        description: `Aguardando auditoria financeira. Chave: ${pix}`,
                         timestamp: serverTimestamp()
                     });
                 });
 
-                showMsg('Solicitado!', 'Sua retirada de lucros foi encaminhada para aprovação financeira.', 'success');
-                setTimeout(() => { window.location.href = "extrato.html"; }, 2500);
+                showMsg('Sucesso!', 'Seu pedido foi enviado ao setor financeiro. Prazo de até 24h úteis.', 'success');
+                setTimeout(() => { window.location.href = "extrato.html"; }, 3000);
 
             } catch (e) {
                 console.error(e);
-                showMsg('Falha no Sistema', 'Não foi possível processar seu saque no momento.', 'error');
+                showMsg('Erro', 'Falha ao processar solicitação: ' + e, 'error');
                 btn.disabled = false;
                 btn.innerText = "Confirmar Retirada";
             }
