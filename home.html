@@ -304,7 +304,6 @@
             });
         }
 
-        // LÓGICA DE COMISSÃO EM CASCATA (3 NÍVEIS)
         async function pagarComissoes(padrinhoId, valorPlano, nivel) {
             if (!padrinhoId || padrinhoId === "direto" || nivel > 3) return;
 
@@ -313,13 +312,12 @@
 
             if (padrinhoSnap.exists()) {
                 let porcentagem = 0;
-                if (nivel === 1) porcentagem = 0.15; // 15%
-                if (nivel === 2) porcentagem = 0.03; // 3%
-                if (nivel === 3) porcentagem = 0.01; // 1%
+                if (nivel === 1) porcentagem = 0.15;
+                if (nivel === 2) porcentagem = 0.03;
+                if (nivel === 3) porcentagem = 0.01;
 
                 const comissao = valorPlano * porcentagem;
 
-                // Atualiza saldo do padrinho e registra ganho
                 await updateDoc(padrinhoRef, {
                     saldo: increment(comissao),
                     totalGanhos: increment(comissao)
@@ -327,7 +325,6 @@
 
                 console.log(`Comissão Nível ${nivel} de R$ ${comissao} paga para: ${padrinhoId}`);
 
-                // Busca o próximo padrinho (avô/bisavô) para continuar a cascata
                 const proximoPadrinhoId = padrinhoSnap.data().indicadoPor;
                 await pagarComissoes(proximoPadrinhoId, valorPlano, nivel + 1);
             }
@@ -372,21 +369,22 @@
                         try {
                             const planoData = planos.find(p => p.id === id);
                             
-                            // 1. Descontar saldo do comprador e marcar como VIP/Investidor
+                            // 1. Descontar saldo e marcar VIP
                             await updateDoc(userRef, {
                                 saldo: increment(-preco),
                                 totalInvestido: increment(preco),
                                 isVip: true
                             });
 
-                            // 2. Iniciar pagamento de comissões para a rede (Pai, Avô, Bisavô)
+                            // 2. Comissões em cascata
                             if (userData.indicadoPor && userData.indicadoPor !== "direto") {
                                 await pagarComissoes(userData.indicadoPor, preco, 1);
                             }
 
                             // 3. Adicionar plano à coleção de ativos
+                            // LOGICA DE LUCRO BASEADA NA HORA DA COMPRA
                             const agora = new Date();
-                            const proximoRendimento = new Date(agora.getTime() + 24 * 60 * 60 * 1000);
+                            const agoraMS = agora.getTime(); // Timestamp em milissegundos
 
                             await addDoc(collection(db, "ativos"), {
                                 userId: user.uid,
@@ -395,15 +393,16 @@
                                 valorInvestido: preco,
                                 lucroDiario: preco * 0.20,
                                 lucroTotalAcumulado: 0,
-                                dataCompra: serverTimestamp(),
-                                proximoRendimento: proximoRendimento.getTime(),
+                                dataCompra: serverTimestamp(), // Campo legível para o Admin
+                                timestampCompra: agoraMS,     // Referência absoluta
+                                ultimoPagamento: agoraMS,    // O pagamento diário se baseia neste horário
                                 cicloRestante: 15,
                                 status: "ativo"
                             });
 
                             Swal.fire({
                                 title: "Sucesso!",
-                                text: "Investimento realizado e comissões de rede distribuídas!",
+                                text: "Investimento realizado! Seu lucro cairá diariamente no horário exato desta compra.",
                                 icon: "success",
                                 confirmButtonColor: "#00a3e0"
                             }).then(() => {
