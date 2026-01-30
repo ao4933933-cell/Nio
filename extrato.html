@@ -216,8 +216,10 @@
         }
 
         /* CORES POR TIPO */
+        .color-income { color: var(--income) !important; }
+        .color-outcome { color: var(--outcome) !important; }
         .type-deposito { color: var(--income); }
-        .type-saque, .type-saque_lucro { color: var(--outcome); }
+        .type-saque { color: var(--outcome); }
         .type-plano { color: var(--nio-blue); }
         .type-comissao { color: var(--gold); }
 
@@ -229,7 +231,8 @@
         <a href="perfil.html" class="btn-back-lux">
             <i class="fa-solid fa-arrow-left"></i>
         </a>
-        <div style="width: 45px;"></div> </nav>
+        <div style="width: 45px;"></div>
+    </nav>
 
     <section class="header-section">
         <h1>Meu Extrato</h1>
@@ -272,6 +275,7 @@
         let userUID = null;
         let currentFilter = "all";
         let listeners = [];
+        let masterData = []; // Armazena os dados para renderização rápida
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
@@ -282,13 +286,13 @@
             }
         });
 
-        // Eventos de Filtro
+        // Configuração de cliques nos filtros
         document.querySelectorAll('.chip').forEach(chip => {
             chip.addEventListener('click', () => {
                 document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
                 chip.classList.add('active');
                 currentFilter = chip.getAttribute('data-type');
-                initLuxMonitor();
+                renderPremiumUI(); // Apenas re-renderiza o que já temos
             });
         });
 
@@ -300,66 +304,82 @@
         }
 
         async function initLuxMonitor() {
-            const container = document.getElementById('mainTimeline');
-            listeners.forEach(u => u());
+            // Limpa listeners antigos
+            listeners.forEach(unsub => unsub());
             listeners = [];
 
-            // Monitora múltiplas coleções simultaneamente
             const targets = ["transactions", "ativos", "historico"];
             
             targets.forEach(colName => {
                 const q = query(collection(db, colName), where("userId", "==", userUID));
-                const unsub = onSnapshot(q, () => refreshPremiumUI());
+                
+                // Monitoramento em tempo real real
+                const unsub = onSnapshot(q, (snapshot) => {
+                    // Removemos dados antigos desta coleção específica para evitar duplicatas
+                    masterData = masterData.filter(item => item.originCollection !== colName);
+                    
+                    snapshot.forEach(doc => {
+                        const d = doc.data();
+                        masterData.push({
+                            ...d,
+                            docId: doc.id,
+                            originCollection: colName,
+                            dateObj: parseLuxDate(d.timestamp || d.dataCompra || d.dataRegistro)
+                        });
+                    });
+                    
+                    renderPremiumUI();
+                }, (error) => {
+                    console.error("Erro na leitura:", error);
+                });
+                
                 listeners.push(unsub);
             });
-
-            async function refreshPremiumUI() {
-                let masterList = [];
-                for (const col of targets) {
-                    const snap = await getDocs(query(collection(db, col), where("userId", "==", userUID)));
-                    snap.forEach(doc => {
-                        const d = doc.data();
-                        const date = parseLuxDate(d.timestamp || d.dataCompra || d.dataRegistro);
-                        masterList.push({ ...d, dateObj: date, source: col });
-                    });
-                }
-
-                masterList.sort((a, b) => b.dateObj - a.dateObj);
-
-                if (currentFilter !== "all") {
-                    masterList = masterList.filter(t => {
-                        const type = (t.type || t.tipo || "").toLowerCase();
-                        if (currentFilter === "saque") return type.includes("saque");
-                        if (currentFilter === "plano") return type === "plano" || t.source === "ativos";
-                        return type === currentFilter;
-                    });
-                }
-
-                renderPremiumCards(masterList, container);
-            }
         }
 
-        function renderPremiumCards(data, container) {
+        function renderPremiumUI() {
+            const container = document.getElementById('mainTimeline');
+            
+            // Ordena por data (mais recente primeiro)
+            let displayList = [...masterData].sort((a, b) => b.dateObj - a.dateObj);
+
+            // Filtra conforme a seleção do usuário
+            if (currentFilter !== "all") {
+                displayList = displayList.filter(t => {
+                    const type = (t.type || t.tipo || "").toLowerCase();
+                    if (currentFilter === "saque") return type.includes("saque");
+                    if (currentFilter === "plano") return type.includes("plano") || t.originCollection === "ativos";
+                    return type === currentFilter;
+                });
+            }
+
             container.innerHTML = "";
-            if (data.length === 0) {
+
+            if (displayList.length === 0) {
                 container.innerHTML = `<div class="empty-premium"><i class="fa-solid fa-receipt"></i><p>Nenhuma atividade encontrada.</p></div>`;
                 return;
             }
 
-            let lastDate = "";
-            data.forEach((tx, index) => {
+            let lastDateLabel = "";
+
+            displayList.forEach((tx, index) => {
                 const dateStr = tx.dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
                 
-                if (dateStr !== lastDate) {
+                // Adiciona rótulo de data se mudar o dia
+                if (dateStr !== lastDateLabel) {
                     const head = document.createElement('div');
                     head.className = 'date-label';
                     head.innerText = dateStr;
                     container.appendChild(head);
-                    lastDate = dateStr;
+                    lastDateLabel = dateStr;
                 }
 
-                const type = (tx.type || tx.tipo || (tx.source === "ativos" ? "plano" : "deposito")).toLowerCase();
-                const isIncome = ["deposito", "comissao", "bonus", "rendimento"].includes(type);
+                // LÓGICA DE DEFINIÇÃO DE TIPO E SINAL
+                const rawType = (tx.type || tx.tipo || (tx.originCollection === "ativos" ? "plano" : "deposito")).toLowerCase();
+                
+                // Definição: Saques e Ativos (Planos) são SAÍDA (Negativos)
+                const isOutcome = rawType.includes("saque") || rawType.includes("plano") || tx.originCollection === "ativos";
+                
                 const valor = tx.valorOriginal || tx.amount || tx.valorInvestido || 0;
 
                 const card = document.createElement('div');
@@ -368,19 +388,19 @@
 
                 card.innerHTML = `
                     <div class="lux-left">
-                        <div class="lux-icon-box type-${type.replace('_lucro','')}">
-                            <i class="fa-solid ${getLuxIcon(type)}"></i>
+                        <div class="lux-icon-box type-${rawType.replace('_lucro','')}">
+                            <i class="fa-solid ${getLuxIcon(rawType)}"></i>
                         </div>
                         <div class="lux-info">
-                            <h4>${tx.titulo || tx.nome || tx.title || 'Atividade'}</h4>
-                            <p>${tx.status === 'ativo' ? 'Rendimento Constante' : 'Processamento NIO'}</p>
+                            <h4>${tx.titulo || tx.nome || tx.title || 'Operação NIO'}</h4>
+                            <p>${tx.status === 'ativo' || tx.status === 'concluido' ? 'Confirmado via Blockchain' : 'Em processamento'}</p>
                         </div>
                     </div>
                     <div class="lux-right">
-                        <div class="lux-amount" style="color: ${isIncome ? 'var(--income)' : 'var(--outcome)'}">
-                            ${isIncome ? '+' : '-'} R$ ${parseFloat(valor).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+                        <div class="lux-amount ${isOutcome ? 'color-outcome' : 'color-income'}">
+                            ${isOutcome ? '-' : '+'} R$ ${parseFloat(valor).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
                         </div>
-                        <div class="lux-badge">${tx.source}</div>
+                        <div class="lux-badge">${tx.originCollection}</div>
                     </div>
                 `;
                 container.appendChild(card);
@@ -388,10 +408,10 @@
         }
 
         function getLuxIcon(type) {
-            if (type.includes("saque")) return "fa-arrow-trend-up";
+            if (type.includes("saque")) return "fa-arrow-up-from-bracket";
             if (type === "deposito") return "fa-wallet";
-            if (type === "plano") return "fa-gem";
-            if (type === "comissao") return "fa-crown";
+            if (type.includes("plano")) return "fa-gem";
+            if (type.includes("comissao")) return "fa-crown";
             return "fa-bolt";
         }
     </script>
