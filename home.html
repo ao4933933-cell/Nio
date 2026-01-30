@@ -15,6 +15,7 @@
             --border-glass: rgba(255, 255, 255, 0.1);
             --nio-gradient: linear-gradient(135deg, #00a3e0 0%, #006699 100%);
             --popular-gold: #ffd700;
+            --locked-red: #ff3366;
         }
 
         /* RESET GERAL */
@@ -102,6 +103,7 @@
             text-align: center;
             font-size: 12px;
             cursor: pointer;
+            transition: 0.3s;
         }
 
         .tab-btn.active {
@@ -120,6 +122,13 @@
             margin-bottom: 35px;
             overflow: hidden;
             backdrop-filter: blur(10px);
+            position: relative;
+        }
+
+        /* ESTILO PARA PLANO BLOQUEADO */
+        .plan-card.locked {
+            opacity: 0.7;
+            filter: grayscale(0.5);
         }
 
         .plan-img-container {
@@ -147,10 +156,8 @@
             z-index: 2;
         }
 
-        .plan-badge.popular {
-            background: var(--popular-gold);
-            color: black;
-        }
+        .plan-badge.popular { background: var(--popular-gold); color: black; }
+        .plan-badge.locked-badge { background: var(--locked-red); color: white; }
 
         .plan-info { padding: 20px; }
 
@@ -194,7 +201,13 @@
             transition: 0.3s;
         }
 
-        .btn-buy:active { transform: scale(0.95); }
+        .btn-buy:disabled {
+            background: #444;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
+        .btn-buy:active:not(:disabled) { transform: scale(0.95); }
 
         /* MENU INFERIOR */
         .bottom-nav {
@@ -235,8 +248,8 @@
     </div>
 
     <div class="tabs-container">
-        <div class="tab-btn active">ESTABILIZAR</div>
-        <div class="tab-btn">AVANÇADO</div>
+        <div class="tab-btn active" id="tab-estabilizar">ESTABILIZAR</div>
+        <div class="tab-btn" id="tab-avancado">AVANÇADO</div>
     </div>
 
     <div class="plans-list" id="render-plans"></div>
@@ -267,25 +280,39 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        const planos = [
-            { id: 1, nome: "NIO Start Green", valor: 30, img: "Plano1.jpg", badge: "Popular" },
-            { id: 2, nome: "NIO Power Eco", valor: 50, img: "plano2.jpg", badge: "Premium" },
-            { id: 3, nome: "NIO Vision Plus", valor: 100, img: "plano3.jpg", badge: "Premium" },
-            { id: 4, nome: "NIO Horizon Pro", valor: 200, img: "plano4.jpg", badge: "Premium" },
-            { id: 5, nome: "NIO Ultimate G7", valor: 400, img: "plano5.jpg", badge: "Premium" },
-            { id: 6, nome: "NIO Cyber Charge", valor: 600, img: "plano6.jpg", badge: "Premium" },
-            { id: 7, nome: "NIO Galaxy Max", valor: 800, img: "plano7.jpg", badge: "Premium" }
+        // CONFIGURAÇÃO DOS PLANOS
+        const planosEstabilizar = [
+            { id: 1, nome: "NIO Start Green", valor: 30, img: "Plano1.jpg", badge: "Popular", status: "disponivel" },
+            { id: 2, nome: "NIO Power Eco", valor: 50, img: "plano2.jpg", badge: "Premium", status: "disponivel" },
+            { id: 3, nome: "NIO Vision Plus", valor: 100, img: "plano3.jpg", badge: "Premium", status: "disponivel" },
+            { id: 4, nome: "NIO Horizon Pro", valor: 200, img: "plano4.jpg", badge: "Premium", status: "disponivel" },
+            { id: 5, nome: "NIO Ultimate G7", valor: 400, img: "plano5.jpg", badge: "Premium", status: "disponivel" },
+            { id: 6, nome: "NIO Cyber Charge", valor: 600, img: "plano6.jpg", badge: "Premium", status: "disponivel" },
+            { id: 7, nome: "NIO Galaxy Max", valor: 800, img: "plano7.jpg", badge: "Premium", status: "disponivel" }
         ];
+
+        const planosAvancados = [
+            { id: 101, nome: "NIO Advanced X1", valor: 1000, img: "avancado1.jpg", badge: "Indisponível", status: "bloqueado" },
+            { id: 102, nome: "NIO Advanced X2", valor: 1500, img: "avancado2.jpg", badge: "Indisponível", status: "bloqueado" },
+            { id: 103, nome: "NIO Advanced X3", valor: 2000, img: "avancado3.jpg", badge: "Indisponível", status: "bloqueado" }
+        ];
+
+        let abaAtual = 'estabilizar';
 
         function renderPlanos() {
             const container = document.getElementById('render-plans');
             container.innerHTML = '';
-            planos.forEach(plano => {
+            
+            const listaParaRenderizar = (abaAtual === 'estabilizar') ? planosEstabilizar : planosAvancados;
+
+            listaParaRenderizar.forEach(plano => {
                 const lucroDiario = plano.valor * 0.20;
                 const lucroTotal = lucroDiario * 15;
-                const badgeClass = plano.id === 1 ? 'popular' : '';
+                const isLocked = plano.status === 'bloqueado';
+                const badgeClass = plano.id === 1 ? 'popular' : (isLocked ? 'locked-badge' : '');
+                
                 container.innerHTML += `
-                    <div class="plan-card">
+                    <div class="plan-card ${isLocked ? 'locked' : ''}">
                         <div class="plan-img-container">
                             <span class="plan-badge ${badgeClass}">${plano.badge}</span>
                             <img src="${plano.img}" alt="${plano.nome}">
@@ -300,15 +327,33 @@
                                 <div class="stat-box"><h4>R$ ${lucroTotal.toFixed(2)}</h4><p>Retorno Final</p></div>
                                 <div class="stat-box"><h4>15 dias</h4><p>Ciclo</p></div>
                             </div>
-                            <button class="btn-buy" onclick="comprarPlano(${plano.id}, ${plano.valor})">Investir Agora</button>
+                            <button class="btn-buy" 
+                                    ${isLocked ? 'disabled' : ''} 
+                                    onclick="comprarPlano(${plano.id}, ${plano.valor}, '${abaAtual}')">
+                                ${isLocked ? 'Em Breve' : 'Investir Agora'}
+                            </button>
                         </div>
                     </div>`;
             });
         }
 
-        // --- NOVA FUNÇÃO DE COMISSÃO OTIMIZADA PARA 3 NÍVEIS ---
+        // --- CONTROLE DE TABS ---
+        document.getElementById('tab-estabilizar').addEventListener('click', () => {
+            abaAtual = 'estabilizar';
+            document.getElementById('tab-estabilizar').classList.add('active');
+            document.getElementById('tab-avancado').classList.remove('active');
+            renderPlanos();
+        });
+
+        document.getElementById('tab-avancado').addEventListener('click', () => {
+            abaAtual = 'avancado';
+            document.getElementById('tab-avancado').classList.add('active');
+            document.getElementById('tab-estabilizar').classList.remove('active');
+            renderPlanos();
+        });
+
+        // --- DISTRIBUIÇÃO DE COMISSÃO (3 NÍVEIS) ---
         async function distribuirComissoesRede(userData, valorPlano, compradorUid) {
-            // Definição da hierarquia baseada no mapeamento do registro
             const hierarquia = [
                 { id: userData.indicadoPor, porcentagem: 0.15, nivel: 1 },
                 { id: userData.nivel2, porcentagem: 0.03, nivel: 2 },
@@ -316,19 +361,16 @@
             ];
 
             for (const el of hierarquia) {
-                // Só paga se o ID for válido e não for o padrão "direto"
                 if (el.id && el.id !== "direto") {
                     try {
                         const comissao = valorPlano * el.porcentagem;
                         const padrinhoRef = doc(db, "users", el.id);
                         
-                        // Atualiza o Saldo de Lucro (sacável) e o Histórico de Rede do Padrinho
                         await updateDoc(padrinhoRef, {
                             saldoLucro: increment(comissao),
                             totalComissaoRede: increment(comissao)
                         });
 
-                        // Registra a transação no extrato de quem recebeu
                         await addDoc(collection(db, "transacoes"), {
                             userId: el.id,
                             tipo: "comissao_rede",
@@ -339,15 +381,15 @@
                             data: serverTimestamp()
                         });
                         
-                        console.log(`Comissão Nível ${el.nivel} paga para: ${el.id}`);
+                        console.log(`Comissão Nível ${el.nivel} paga`);
                     } catch (err) {
-                        console.error(`Falha ao processar comissão Nível ${el.nivel}:`, err);
+                        console.error(`Falha Nível ${el.nivel}:`, err);
                     }
                 }
             }
         }
 
-        window.comprarPlano = async (id, preco) => {
+        window.comprarPlano = async (id, preco, tipoAba) => {
             onAuthStateChanged(auth, async (user) => {
                 if (!user) {
                     Swal.fire("Erro", "Você precisa estar logado para investir.", "error");
@@ -356,7 +398,6 @@
 
                 const userRef = doc(db, "users", user.uid);
                 const userSnap = await getDoc(userRef);
-
                 if (!userSnap.exists()) return;
 
                 const userData = userSnap.data();
@@ -384,20 +425,17 @@
                 }).then(async (result) => {
                     if (result.isConfirmed) {
                         try {
-                            const planoData = planos.find(p => p.id === id);
+                            const listaSource = (tipoAba === 'estabilizar') ? planosEstabilizar : planosAvancados;
+                            const planoData = listaSource.find(p => p.id === id);
                             
-                            // 1. Deduz o saldo do comprador e torna-o VIP
                             await updateDoc(userRef, {
                                 saldo: increment(-preco),
                                 totalInvestido: increment(preco),
                                 isVip: true
                             });
 
-                            // 2. DISPARA A REDE DE 3 NÍVEIS (15%, 3%, 1%)
-                            // Passamos os dados do comprador para a função de rede
                             await distribuirComissoesRede(userData, preco, user.uid);
 
-                            // 3. Registra o Ativo de Mineração
                             const agora = new Date();
                             const agoraMS = agora.getTime();
 
@@ -417,7 +455,7 @@
 
                             Swal.fire({
                                 title: "Sucesso!",
-                                text: "Investimento ativo! Acompanhe seus lucros diários em 'Ativos'.",
+                                text: "Investimento ativo! Acompanhe seus lucros em 'Ativos'.",
                                 icon: "success",
                                 confirmButtonColor: "#00a3e0"
                             }).then(() => {
@@ -425,8 +463,8 @@
                             });
 
                         } catch (error) {
-                            console.error("Erro ao comprar plano:", error);
-                            Swal.fire("Erro", "Ocorreu um erro ao processar sua compra.", "error");
+                            console.error("Erro:", error);
+                            Swal.fire("Erro", "Falha ao processar compra.", "error");
                         }
                     }
                 });
