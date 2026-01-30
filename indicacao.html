@@ -242,7 +242,7 @@
     <main>
         <section class="how-it-works">
             <h2>Ganhos de Rede</h2>
-            <p>Sua rede é composta por 3 níveis. Você recebe comissões sempre que um indicado direto ou indireto ativa uma máquina de mineração.</p>
+            <p>Sua rede é composta por 3 níveis. Você recebe comissões creditadas diretamente no seu <b>Saldo Lucro</b> sempre que um indicado ativa máquinas de mineração.</p>
         </section>
 
         <section class="commission-grid">
@@ -306,7 +306,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, query, where, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, query, where, getDocs, doc, updateDoc, increment, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
@@ -325,17 +325,11 @@
         let currentUser = null;
         let networkData = { level1: [], level2: [], level3: [] };
 
-        // MONITORAR LOGIN E INICIAR CARREGAMENTO
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
-                
-                // Gerar código de convite encurtado (apenas os 8 primeiros caracteres do UID)
-                const shortCode = user.uid.substring(0, 8).toUpperCase();
-                
-                // Gerar link de convite baseado no código curto
                 const baseUrl = window.location.origin;
-                const link = `${baseUrl}/registro.html?ref=${shortCode}`;
+                const link = `${baseUrl}/registro.html?ref=${user.uid}`;
                 
                 document.getElementById('inviteLinkDisplay').innerText = link;
                 document.getElementById('qrCodeBox').innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${link}" alt="QR Code NIO">`;
@@ -347,18 +341,17 @@
             }
         });
 
-        // LÓGICA DE BUSCA DE REDE (PROFUNDIDADE 3 NÍVEIS)
         async function buildNetwork(userId) {
             document.getElementById('mainLoader').style.display = 'block';
             document.getElementById('teamContainer').innerHTML = '';
             
             try {
-                // BUSCAR NÍVEL 1 (Indicados diretos por você)
+                // NÍVEL 1
                 const q1 = query(collection(db, "users"), where("indicadoPor", "==", userId));
                 const snap1 = await getDocs(q1);
                 networkData.level1 = snap1.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                // BUSCAR NÍVEL 2 (Indicados por seus diretos)
+                // NÍVEL 2
                 const lv2Promises = networkData.level1.map(async (member) => {
                     const q2 = query(collection(db, "users"), where("indicadoPor", "==", member.id));
                     const snap2 = await getDocs(q2);
@@ -367,7 +360,7 @@
                 const resultsLv2 = await Promise.all(lv2Promises);
                 networkData.level2 = resultsLv2.flat();
 
-                // BUSCAR NÍVEL 3 (Indicados pelos membros do nível 2)
+                // NÍVEL 3
                 const lv3Promises = networkData.level2.map(async (member) => {
                     const q3 = query(collection(db, "users"), where("indicadoPor", "==", member.id));
                     const snap3 = await getDocs(q3);
@@ -383,17 +376,49 @@
             }
         }
 
-        // RENDERIZAÇÃO NA TELA
+        // FUNÇÃO DE CRÉDITO DE COMISSÃO (PARA SALDO LUCRO)
+        async function processCommission(sponsorId, amount, level, fromUser) {
+            if (!sponsorId) return;
+            
+            const percentages = { 1: 0.15, 2: 0.03, 3: 0.01 };
+            const commissionValue = amount * percentages[level];
+
+            if (commissionValue <= 0) return;
+
+            try {
+                const sponsorRef = doc(db, "users", sponsorId);
+                
+                // 1. Atualiza o saldoLucro do patrocinador
+                await updateDoc(sponsorRef, {
+                    saldoLucro: increment(commissionValue),
+                    totalComissaoRede: increment(commissionValue)
+                });
+
+                // 2. Registra no histórico (transações)
+                await addDoc(collection(db, "transactions"), {
+                    userId: sponsorId,
+                    type: "comissao",
+                    amount: commissionValue,
+                    title: `Comissão Nível ${level}`,
+                    description: `Bônus por ativação de ${fromUser}`,
+                    timestamp: serverTimestamp(),
+                    status: "concluido"
+                });
+
+                console.log(`Comissão de R$ ${commissionValue} enviada para o Saldo Lucro de ${sponsorId}`);
+            } catch (err) {
+                console.error("Erro ao processar comissão:", err);
+            }
+        }
+
         function renderLevel(lv) {
             const container = document.getElementById('teamContainer');
             const empty = document.getElementById('emptyState');
             const data = networkData[`level${lv}`];
 
-            // UI: Ativar card de comissão correspondente
             document.querySelectorAll('.commission-card').forEach(c => c.classList.remove('active-lv'));
             document.getElementById(`cardLv${lv}`).classList.add('active-lv');
 
-            // UI: Ativar botão da aba
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.getElementById(`btnLv${lv}`).classList.add('active');
 
@@ -406,8 +431,8 @@
 
             empty.style.display = "none";
             data.forEach(user => {
-                // Formatação simples de data
                 const date = user.dataRegistro ? new Date(user.dataRegistro).toLocaleDateString() : 'N/A';
+                const totalInv = user.totalInvestido || 0;
                 
                 const html = `
                     <div class="member-card">
@@ -418,8 +443,8 @@
                                 <p>Ingresso: ${date}</p>
                             </div>
                         </div>
-                        <span class="status-badge ${user.totalInvestido > 0 ? 'status-active' : 'status-pending'}">
-                            ${user.totalInvestido > 0 ? 'INVESTIDOR' : 'FREE'}
+                        <span class="status-badge ${totalInv > 0 ? 'status-active' : 'status-pending'}">
+                            ${totalInv > 0 ? 'INVESTIDOR' : 'FREE'}
                         </span>
                     </div>
                 `;
@@ -427,12 +452,10 @@
             });
         }
 
-        // FUNÇÃO PARA TROCAR ABA
         window.changeLevel = (lv) => {
             renderLevel(lv);
         };
 
-        // FUNÇÃO COPIAR LINK
         window.copyMyInviteLink = () => {
             const link = document.getElementById('inviteLinkDisplay').innerText;
             if (link.includes("Carregando")) return;
