@@ -306,9 +306,9 @@
                 </div>
                 <div class="item-right"><i class="fa-solid fa-chevron-right"></i></div>
             </a>
-            <a href="alterar-senha.html" class="menu-item">
+            <a href="segurancadaconta.html" class="menu-item">
                 <div class="item-left">
-                    <i class="fa-solid fa-lock"></i>
+                    <i class="fa-solid fa-shield-halved"></i>
                     <span>Segurança da Conta</span>
                 </div>
                 <div class="item-right"><i class="fa-solid fa-chevron-right"></i></div>
@@ -384,12 +384,11 @@
                     }
                 });
             } else {
-                // Caso o usuário tente acessar sem estar logado, volta para index.html
                 window.location.href = 'index.html';
             }
         });
 
-        // LOGOUT COM SWEETALERT E REDIRECIONAMENTO PARA INDEX.HTML
+        // LOGOUT COM SWEETALERT
         window.handleLogout = function() {
             Swal.fire({
                 title: 'Deseja encerrar?',
@@ -405,18 +404,14 @@
             }).then((result) => {
                 if (result.isConfirmed) {
                     signOut(auth).then(() => {
-                        // Redireciona especificamente para a página de login/entrada
                         window.location.href = 'index.html';
                     }).catch((error) => {
                         console.error("Erro ao sair:", error);
-                        // Mesmo com erro no Firebase, forçamos o redirecionamento
                         window.location.href = 'index.html';
                     });
                 }
             });
         }
-
-        console.log("NIO Profile Premium: Real-time Multi-Wallet Synced");
     </script>
 </body>
 </html>
