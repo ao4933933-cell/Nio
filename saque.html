@@ -95,7 +95,7 @@
             font-size: 2.2rem;
             margin-top: 8px;
             font-weight: 800;
-            color: var(--nio-blue);
+            color: var(--success);
         }
 
         /* INFO LOCK - MENSAGEM MELHORADA */
@@ -243,14 +243,14 @@
 
     <header class="premium-header">
         <a href="perfil.html" class="btn-back"><i class="fa-solid fa-chevron-left"></i></a>
-        <div class="header-title"><h1>Retirada</h1></div>
+        <div class="header-title"><h1>Retirada de Lucros</h1></div>
         <div style="width: 45px;"></div>
     </header>
 
     <main class="withdraw-container">
         
         <div class="balance-card">
-            <span>Saldo em Conta</span>
+            <span>Saldo de Lucros Disponível</span>
             <h2 id="userBalance">R$ 0,00</h2>
         </div>
 
@@ -286,6 +286,7 @@
         <button class="btn-withdraw" id="btnAction" onclick="requestWithdraw()">Confirmar Retirada</button>
 
         <div class="rules-list">
+            <p><i class="fa-solid fa-triangle-exclamation" style="color: var(--warning);"></i> Somente o Saldo de Lucros (rendimentos) pode ser sacado.</p>
             <p><i class="fa-solid fa-percent" style="color: var(--warning);"></i> Taxa de administração fixa de 10% sobre o valor do resgate.</p>
             <p><i class="fa-solid fa-circle-info"></i> Pagamentos realizados via PIX em até 24 horas úteis após a aprovação.</p>
             <p><i class="fa-solid fa-shield-check" style="color: var(--success);"></i> Transação protegida por criptografia NIO Secure Protocol.</p>
@@ -312,7 +313,7 @@
         const auth = getAuth(app);
 
         let userUID = null;
-        let currentSaldo = 0;
+        let currentSaldoLucro = 0; // Alterado para focar no lucro
         let selectedPixType = 'CPF';
 
         window.selectPixType = function(type, el) {
@@ -339,10 +340,11 @@
             if (user) {
                 userUID = user.uid;
                 checkTimeWindow();
+                // Monitorando saldoLucro em tempo real
                 onSnapshot(doc(db, "users", user.uid), (docSnap) => {
                     if (docSnap.exists()) {
-                        currentSaldo = docSnap.data().saldo || 0;
-                        document.getElementById('userBalance').innerText = `R$ ${currentSaldo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+                        currentSaldoLucro = docSnap.data().saldoLucro || 0; // Busca do campo correto
+                        document.getElementById('userBalance').innerText = `R$ ${currentSaldoLucro.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
                     }
                 });
             } else {
@@ -378,16 +380,15 @@
             }
 
             if (isNaN(amount) || amount < 35) {
-                showMsg('Valor Mínimo', 'O limite mínimo para saque é de R$ 35,00.', 'warning');
+                showMsg('Valor Mínimo', 'O limite mínimo para saque de lucros é de R$ 35,00.', 'warning');
                 return;
             }
 
-            if (amount > currentSaldo) {
-                showMsg('Saldo Insuficiente', 'O valor solicitado é superior ao seu saldo disponível.', 'error');
+            if (amount > currentSaldoLucro) {
+                showMsg('Lucro Insuficiente', 'Você só pode sacar valores disponíveis no seu Saldo de Lucros.', 'error');
                 return;
             }
 
-            // Cálculo da Taxa de 10%
             const tax = amount * 0.10;
             const netAmount = amount - tax;
 
@@ -418,28 +419,29 @@
                     const userDoc = await transaction.get(userRef);
                     if (!userDoc.exists()) throw "Usuário não encontrado!";
                     
-                    const newBalance = userDoc.data().saldo - amount;
-                    if (newBalance < 0) throw "Saldo insuficiente no processamento!";
+                    const newBalanceLucro = (userDoc.data().saldoLucro || 0) - amount; // Deduzindo do saldoLucro
+                    if (newBalanceLucro < 0) throw "Saldo de lucro insuficiente no processamento!";
 
-                    transaction.update(userRef, { saldo: newBalance });
+                    // Atualiza apenas o campo saldoLucro
+                    transaction.update(userRef, { saldoLucro: newBalanceLucro });
 
                     const txRef = collection(db, "transactions");
                     await addDoc(txRef, {
                         uid: userUID,
-                        amountRaw: amount,      // Valor bruto solicitado
-                        tax: tax,               // Taxa de 10%
-                        amountNet: netAmount,   // Valor líquido a pagar
-                        type: "saque",
+                        amountRaw: amount,      
+                        tax: tax,               
+                        amountNet: netAmount,   
+                        type: "saque_lucro",
                         status: "Pendente",
                         pixKey: pix,
                         pixType: selectedPixType,
-                        title: "Resgate de Saldo",
+                        title: "Resgate de Lucros",
                         description: `Bruto: R$${amount.toFixed(2)} | Líquido: R$${netAmount.toFixed(2)}`,
                         timestamp: serverTimestamp()
                     });
                 });
 
-                showMsg('Solicitado!', 'Sua retirada foi encaminhada para aprovação financeira.', 'success');
+                showMsg('Solicitado!', 'Sua retirada de lucros foi encaminhada para aprovação financeira.', 'success');
                 setTimeout(() => { window.location.href = "extrato.html"; }, 2500);
 
             } catch (e) {
