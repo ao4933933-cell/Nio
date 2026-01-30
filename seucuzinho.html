@@ -18,6 +18,7 @@
             --success: #00ff88;
             --warning: #ffcc00;
             --accent-glow: rgba(0, 163, 224, 0.2);
+            --gold: #ffd700;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
@@ -140,6 +141,7 @@
         .btn-approve { background: var(--success); color: #010409; }
         .btn-reject { background: var(--danger); color: #fff; }
         .btn-edit { background: var(--nio-blue); color: #fff; }
+        .btn-vip { background: var(--warning); color: #000; }
 
         /* USER SEARCH BOX */
         .search-container { display: flex; gap: 15px; margin-bottom: 30px; }
@@ -156,6 +158,19 @@
         .field-label { font-size: 9px; text-transform: uppercase; color: rgba(255,255,255,0.3); font-weight: 800; display: block; margin-bottom: 5px; }
         .field-value { font-size: 14px; font-weight: 600; color: #fff; display: flex; justify-content: space-between; align-items: center; }
         .edit-icon { color: var(--nio-blue); cursor: pointer; font-size: 12px; }
+
+        /* TOP LÍDERES RANKING STYLE */
+        .leader-card {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 20px; background: rgba(255,255,255,0.02);
+            border: 1px solid var(--glass-border); border-radius: 15px; margin-bottom: 10px;
+        }
+        .leader-rank { 
+            width: 40px; height: 40px; border-radius: 50%; background: var(--nio-blue);
+            display: flex; align-items: center; justify-content: center; font-weight: 800; color: #000;
+        }
+        .leader-email { flex: 1; margin-left: 20px; font-weight: 600; }
+        .leader-count { font-size: 12px; font-weight: 800; color: var(--success); }
 
         .active-plans-box { background: rgba(0,0,0,0.2); border-radius: 24px; padding: 25px; border: 1px solid var(--glass-border); }
 
@@ -186,6 +201,7 @@
             <div class="nav-link active" onclick="showSection('dashboard', this)"><i class="fa-solid fa-chart-line"></i> Painel Geral</div>
             <div class="nav-link" onclick="showSection('financeiro', this)"><i class="fa-solid fa-wallet"></i> Saques Pendentes</div>
             <div class="nav-link" onclick="showSection('usuarios', this)"><i class="fa-solid fa-users-viewfinder"></i> Inteligência de Rede</div>
+            <div class="nav-link" onclick="showSection('lideres', this)"><i class="fa-solid fa-crown"></i> Top Líderes</div>
             <div class="nav-link" onclick="showSection('contratados', this)"><i class="fa-solid fa-file-contract"></i> Gestão VIP</div>
             <div class="nav-link" onclick="location.href='home.html'"><i class="fa-solid fa-arrow-right-from-bracket"></i> Voltar</div>
         </nav>
@@ -287,16 +303,27 @@
                             </span>
                         </div>
 
-                        <button class="btn-action btn-reject" style="width: 100%; margin-top: 10px;" onclick="banUser()">Restringir Acesso</button>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;">
+                            <button id="vip-toggle-btn" class="btn-action btn-vip" style="justify-content: center;" onclick="toggleVipSearch()">CONTRATAR VIP</button>
+                            <button class="btn-action btn-reject" style="justify-content: center;" onclick="banUser()">BANIR</button>
+                        </div>
                     </div>
 
                     <div class="active-plans-box">
                         <h4 style="font-size: 11px; margin-bottom: 20px; color: var(--nio-blue);">ATIVOS EM OPERAÇÃO</h4>
-                        <div id="user-active-plans-list">
-                            </div>
+                        <div id="user-active-plans-list"></div>
                     </div>
                 </div>
             </div>
+        </section>
+
+        <section id="lideres" class="hidden">
+            <div class="page-header">
+                <p class="page-subtitle">Network Powerhouse</p>
+                <h1 class="page-title">Top 10 Líderes NIO</h1>
+            </div>
+            <div class="admin-section" id="ranking-container">
+                </div>
         </section>
 
         <section id="contratados" class="hidden">
@@ -334,7 +361,6 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        // LISTA DE ADMINISTRADORES
         const ADMIN_EMAILS = [
             "ao981017448@gmail.com",
             "lopezzedwardd6@gmail.com",
@@ -342,6 +368,7 @@
         ];
 
         let currentSearchUid = null;
+        let currentVipStatus = false;
 
         onAuthStateChanged(auth, (user) => {
             if (!user || !ADMIN_EMAILS.includes(user.email)) {
@@ -361,6 +388,8 @@
             document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
             document.getElementById(id).classList.remove('hidden');
             el.classList.add('active');
+            
+            if(id === 'lideres') loadTopLeaders();
         };
 
         function initAdminEngine() {
@@ -385,13 +414,13 @@
                             <td><span class="badge-status status-active">ATIVO</span></td>
                         </tr>`;
 
-                    if(d.contratado) {
+                    if(d.contratado === true) {
                         contratadosBody.innerHTML += `
                             <tr>
                                 <td>${d.email}</td>
                                 <td>${formatBRL(d.saldo)}</td>
                                 <td style="color:var(--success)">${formatBRL(d.saldoLucro)}</td>
-                                <td><button class="btn-action btn-reject" onclick="toggleContrato('${u.id}', false)">Cancelar</button></td>
+                                <td><button class="btn-action btn-reject" onclick="toggleContrato('${u.id}', false)">Remover VIP</button></td>
                             </tr>`;
                     }
                 });
@@ -426,6 +455,46 @@
             });
         }
 
+        // --- TOP LIDERES ENGINE ---
+        async function loadTopLeaders() {
+            const container = document.getElementById('ranking-container');
+            container.innerHTML = "<p style='text-align:center; color:gray;'>Calculando influência de rede...</p>";
+
+            const allUsersSnap = await getDocs(collection(db, "users"));
+            const usersList = [];
+            
+            allUsersSnap.forEach(doc => {
+                usersList.push({ id: doc.id, email: doc.email });
+            });
+
+            const leadersData = [];
+
+            for (const user of usersList) {
+                const networkQuery = query(collection(db, "users"), where("indicadoPor", "==", user.id));
+                const networkSnap = await getDocs(networkQuery);
+                if (networkSnap.size > 0) {
+                    leadersData.push({ email: user.email, count: networkSnap.size });
+                }
+            }
+
+            // Ordenar por maior número de indicados
+            leadersData.sort((a, b) => b.count - a.count);
+            const top10 = leadersData.slice(0, 10);
+
+            container.innerHTML = "";
+            top10.forEach((leader, index) => {
+                container.innerHTML += `
+                    <div class="leader-card">
+                        <div class="leader-rank">${index + 1}</div>
+                        <div class="leader-email">${leader.email}</div>
+                        <div class="leader-count">${leader.count} Convidados</div>
+                    </div>
+                `;
+            });
+
+            if(top10.length === 0) container.innerHTML = "<p style='color:gray'>Nenhum líder com rede ativa encontrado.</p>";
+        }
+
         // --- INTELIGÊNCIA DE BUSCA AVANÇADA ---
         window.searchUser = async () => {
             const email = document.getElementById('searchInput').value.trim();
@@ -442,95 +511,90 @@
             const uDoc = snap.docs[0];
             const d = uDoc.data();
             currentSearchUid = uDoc.id;
+            currentVipStatus = d.contratado || false;
 
-            // Preencher Dados Básicos
+            // Atualizar Botão VIP
+            const vipBtn = document.getElementById('vip-toggle-btn');
+            if(currentVipStatus) {
+                vipBtn.innerText = "REMOVER VIP";
+                vipBtn.classList.replace('btn-vip', 'btn-reject');
+            } else {
+                vipBtn.innerText = "CONTRATAR VIP";
+                vipBtn.classList.replace('btn-reject', 'btn-vip');
+            }
+
             document.getElementById('u-uid').innerText = uDoc.id;
             document.getElementById('u-balance').innerText = formatBRL(d.saldo);
             document.getElementById('u-profit').innerText = formatBRL(d.saldoLucro);
 
-            // 1. Buscar quem indicou esse usuário
             if(d.indicadoPor && d.indicadoPor !== "direto") {
                 const sponsorDoc = await getDocs(query(collection(db, "users"), where("__name__", "==", d.indicadoPor)));
-                if(!sponsorDoc.empty) {
-                    document.getElementById('u-sponsor').innerText = sponsorDoc.docs[0].data().email;
-                } else {
-                    document.getElementById('u-sponsor').innerText = "ID: " + d.indicadoPor;
-                }
+                document.getElementById('u-sponsor').innerText = sponsorDoc.empty ? "ID: " + d.indicadoPor : sponsorDoc.docs[0].data().email;
             } else {
                 document.getElementById('u-sponsor').innerText = "Entrada Direta";
             }
 
-            // 2. Contar quantos esse usuário indicou
             const qNetwork = query(collection(db, "users"), where("indicadoPor", "==", currentSearchUid));
             const snapNetwork = await getDocs(qNetwork);
             document.getElementById('u-network-count').innerText = snapNetwork.size + " Membros Diretos";
 
-            // 3. Listar Planos Ativos
             const qPlans = query(collection(db, "ativos"), where("userId", "==", currentSearchUid), where("status", "==", "ativo"));
             const snapPlans = await getDocs(qPlans);
             const plansBox = document.getElementById('user-active-plans-list');
-            plansBox.innerHTML = "";
-
-            if(snapPlans.empty) {
-                plansBox.innerHTML = "<p style='font-size:12px; color:gray;'>Nenhum investimento ativo no momento.</p>";
-            } else {
-                snapPlans.forEach(p => {
-                    const pData = p.data();
-                    plansBox.innerHTML += `
-                        <div style="background:rgba(255,255,255,0.03); padding:15px; border-radius:12px; margin-bottom:10px; border-left:3px solid var(--nio-blue);">
-                            <div style="font-size:12px; font-weight:800; color:#fff;">${pData.nome}</div>
-                            <div style="font-size:10px; color:var(--success);">Rendimento: ${formatBRL(pData.lucroDiario)}/dia</div>
-                            <div style="font-size:10px; color:gray;">Investido: ${formatBRL(pData.valorInvestido)}</div>
-                        </div>`;
-                });
-            }
+            plansBox.innerHTML = snapPlans.empty ? "<p style='color:gray'>Sem planos ativos.</p>" : "";
+            snapPlans.forEach(p => {
+                const pData = p.data();
+                plansBox.innerHTML += `
+                    <div style="background:rgba(255,255,255,0.03); padding:12px; border-radius:12px; margin-bottom:8px; border-left:3px solid var(--nio-blue);">
+                        <div style="font-size:12px; font-weight:800; color:#fff;">${pData.nome}</div>
+                        <div style="font-size:10px; color:var(--success);">Rendimento: ${formatBRL(pData.lucroDiario)}/dia</div>
+                    </div>`;
+            });
 
             document.getElementById('userDetails').classList.remove('hidden');
+        };
+
+        window.toggleVipSearch = async () => {
+            const newStatus = !currentVipStatus;
+            await updateDoc(doc(db, "users", currentSearchUid), { contratado: newStatus });
+            Swal.fire("Sucesso", newStatus ? "Membro agora é VIP!" : "Membro removido do VIP.", "success");
+            searchUser();
         };
 
         window.editData = async (field, label) => {
             const { value: newVal } = await Swal.fire({
                 title: `Ajustar ${label}`,
                 input: 'number',
-                background: '#010409',
-                color: '#fff',
-                confirmButtonColor: '#00a3e0'
+                background: '#010409', color: '#fff'
             });
 
-            if (newVal !== undefined && newVal !== "") {
+            if (newVal) {
                 await updateDoc(doc(db, "users", currentSearchUid), { [field]: parseFloat(newVal) });
-                Swal.fire("Atualizado", "Banco de dados modificado.", "success");
                 searchUser(); 
             }
         };
 
         window.aprovarSaque = async (docId, uid, valor) => {
             await updateDoc(doc(db, "solicitacoes_saque", docId), { status: "aprovado" });
-            Swal.fire("Pago", "Saque marcado como concluído.", "success");
+            Swal.fire("Pago", "Status atualizado.", "success");
         };
 
         window.rejeitarSaque = async (docId, uid, valor) => {
             await updateDoc(doc(db, "solicitacoes_saque", docId), { status: "rejeitado" });
             await updateDoc(doc(db, "users", uid), { saldoLucro: increment(valor) });
-            Swal.fire("Estornado", "Saldo devolvido ao investidor.", "info");
+            Swal.fire("Estornado", "Saldo devolvido.", "info");
         };
 
         window.toggleContrato = async (uid, status) => {
             await updateDoc(doc(db, "users", uid), { contratado: status });
-            Swal.fire("Sucesso", "Status VIP atualizado.", "success");
+            Swal.fire("Atualizado", "Status VIP modificado.", "success");
         };
 
         window.banUser = async () => {
-            const confirm = await Swal.fire({
-                title: "Restringir?",
-                text: "O usuário não poderá mais realizar saques.",
-                icon: "warning",
-                showCancelButton: true,
-                confirmButtonColor: "#ff3366"
-            });
+            const confirm = await Swal.fire({ title: "Banir?", icon: "warning", showCancelButton: true });
             if(confirm.isConfirmed) {
                 await updateDoc(doc(db, "users", currentSearchUid), { banido: true });
-                Swal.fire("Restrito", "Acesso bloqueado.", "success");
+                Swal.fire("Banido", "Acesso bloqueado.", "success");
             }
         };
 
