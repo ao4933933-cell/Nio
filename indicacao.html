@@ -331,16 +331,16 @@
                 currentUser = user;
                 const baseUrl = window.location.origin;
                 
-                // EXTRAÇÃO DOS 8 PRIMEIROS CARACTERES DO UID
+                // ALTERAÇÃO: EXTRAÇÃO DOS 8 PRIMEIROS CARACTERES PARA O LINK CURTO
                 const shortId = user.uid.substring(0, 8);
-                const fullInviteLink = `${baseUrl}/registro.html?ref=${user.uid}`;
+                const shortInviteLink = `${baseUrl}/registro.html?ref=${shortId}`;
                 
-                // EXIBIÇÃO VISUAL CURTA
+                // EXIBIÇÃO VISUAL DO CÓDIGO E LINK CURTOS
                 document.getElementById('shortIdDisplay').innerText = shortId;
-                document.getElementById('inviteLinkDisplay').innerText = fullInviteLink;
+                document.getElementById('inviteLinkDisplay').innerText = shortInviteLink;
                 
-                // QR CODE COM LINK COMPLETO (NECESSÁRIO PARA O REGISTRO FUNCIONAR)
-                document.getElementById('qrCodeBox').innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${fullInviteLink}" alt="QR Code NIO">`;
+                // QR CODE COM O LINK CURTO
+                document.getElementById('qrCodeBox').innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${shortInviteLink}" alt="QR Code NIO">`;
                 
                 await buildNetwork(user.uid);
                 renderLevel(1);
@@ -354,12 +354,12 @@
             document.getElementById('teamContainer').innerHTML = '';
             
             try {
-                // NÍVEL 1 (BUSCA QUEM FOI INDICADO POR VOCÊ)
+                // NÍVEL 1
                 const q1 = query(collection(db, "users"), where("indicadoPor", "==", userId));
                 const snap1 = await getDocs(q1);
                 networkData.level1 = snap1.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                // NÍVEL 2 (BUSCA QUEM FOI INDICADO PELO SEU NÍVEL 1)
+                // NÍVEL 2
                 const lv2Promises = networkData.level1.map(async (member) => {
                     const q2 = query(collection(db, "users"), where("indicadoPor", "==", member.id));
                     const snap2 = await getDocs(q2);
@@ -368,7 +368,7 @@
                 const resultsLv2 = await Promise.all(lv2Promises);
                 networkData.level2 = resultsLv2.flat();
 
-                // NÍVEL 3 (BUSCA QUEM FOI INDICADO PELO SEU NÍVEL 2)
+                // NÍVEL 3
                 const lv3Promises = networkData.level2.map(async (member) => {
                     const q3 = query(collection(db, "users"), where("indicadoPor", "==", member.id));
                     const snap3 = await getDocs(q3);
