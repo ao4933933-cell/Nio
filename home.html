@@ -101,6 +101,7 @@
             font-weight: 800;
             text-align: center;
             font-size: 12px;
+            cursor: pointer;
         }
 
         .tab-btn.active {
@@ -143,6 +144,7 @@
             font-size: 10px;
             font-weight: 900;
             text-transform: uppercase;
+            z-index: 2;
         }
 
         .plan-badge.popular {
@@ -304,49 +306,44 @@
             });
         }
 
-        // FUNÇÃO DE PAGAMENTO DE COMISSÕES REVISADA
-        async function pagarComissoes(padrinhoId, valorPlano, nivel) {
-            // Regra: Nível 1 = 15%, Nível 2 = 3%, Nível 3 = 1%
-            if (!padrinhoId || padrinhoId === "direto" || nivel > 3) return;
+        // --- NOVA FUNÇÃO DE COMISSÃO OTIMIZADA PARA 3 NÍVEIS ---
+        async function distribuirComissoesRede(userData, valorPlano, compradorUid) {
+            // Definição da hierarquia baseada no mapeamento do registro
+            const hierarquia = [
+                { id: userData.indicadoPor, porcentagem: 0.15, nivel: 1 },
+                { id: userData.nivel2, porcentagem: 0.03, nivel: 2 },
+                { id: userData.nivel3, porcentagem: 0.01, nivel: 3 }
+            ];
 
-            try {
-                const padrinhoRef = doc(db, "users", padrinhoId);
-                const padrinhoSnap = await getDoc(padrinhoRef);
+            for (const el of hierarquia) {
+                // Só paga se o ID for válido e não for o padrão "direto"
+                if (el.id && el.id !== "direto") {
+                    try {
+                        const comissao = valorPlano * el.porcentagem;
+                        const padrinhoRef = doc(db, "users", el.id);
+                        
+                        // Atualiza o Saldo de Lucro (sacável) e o Histórico de Rede do Padrinho
+                        await updateDoc(padrinhoRef, {
+                            saldoLucro: increment(comissao),
+                            totalComissaoRede: increment(comissao)
+                        });
 
-                if (padrinhoSnap.exists()) {
-                    let porcentagem = 0;
-                    if (nivel === 1) porcentagem = 0.15;
-                    else if (nivel === 2) porcentagem = 0.03;
-                    else if (nivel === 3) porcentagem = 0.01;
-
-                    const comissao = valorPlano * porcentagem;
-
-                    // Atualiza Saldo de Lucro do padrinho (onde caem as comissões)
-                    await updateDoc(padrinhoRef, {
-                        saldoLucro: increment(comissao), // Mudado para saldoLucro para separar de depósitos
-                        totalComissaoRede: increment(comissao) // Histórico total da rede
-                    });
-
-                    // Registra na coleção de transações para o extrato do padrinho
-                    await addDoc(collection(db, "transacoes"), {
-                        userId: padrinhoId,
-                        tipo: "comissao_rede",
-                        valor: comissao,
-                        nivel: nivel,
-                        origem: auth.currentUser.uid,
-                        timestamp: serverTimestamp()
-                    });
-
-                    console.log(`Sucesso: Comissão Nível ${nivel} (R$ ${comissao}) paga para ${padrinhoId}`);
-
-                    // Busca o próximo padrinho na hierarquia para o próximo nível
-                    const proximoPadrinhoId = padrinhoSnap.data().indicadoPor;
-                    if (proximoPadrinhoId) {
-                        await pagarComissoes(proximoPadrinhoId, valorPlano, nivel + 1);
+                        // Registra a transação no extrato de quem recebeu
+                        await addDoc(collection(db, "transacoes"), {
+                            userId: el.id,
+                            tipo: "comissao_rede",
+                            valor: comissao,
+                            nivelOrigem: el.nivel,
+                            compradorNome: userData.nome,
+                            compradorUid: compradorUid,
+                            data: serverTimestamp()
+                        });
+                        
+                        console.log(`Comissão Nível ${el.nivel} paga para: ${el.id}`);
+                    } catch (err) {
+                        console.error(`Falha ao processar comissão Nível ${el.nivel}:`, err);
                     }
                 }
-            } catch (err) {
-                console.error("Erro no processamento da comissão:", err);
             }
         }
 
@@ -363,7 +360,6 @@
                 if (!userSnap.exists()) return;
 
                 const userData = userSnap.data();
-                // O usuário compra usando o 'saldo' (depósitos)
                 const saldoAtual = userData.saldo || 0;
 
                 if (saldoAtual < preco) {
@@ -390,19 +386,18 @@
                         try {
                             const planoData = planos.find(p => p.id === id);
                             
-                            // 1. Descontar saldo do comprador e atualizar status
+                            // 1. Deduz o saldo do comprador e torna-o VIP
                             await updateDoc(userRef, {
                                 saldo: increment(-preco),
                                 totalInvestido: increment(preco),
                                 isVip: true
                             });
 
-                            // 2. DISPARAR COMISSÕES PARA A REDE (15%, 3%, 1%)
-                            if (userData.indicadoPor && userData.indicadoPor !== "direto") {
-                                await pagarComissoes(userData.indicadoPor, preco, 1);
-                            }
+                            // 2. DISPARA A REDE DE 3 NÍVEIS (15%, 3%, 1%)
+                            // Passamos os dados do comprador para a função de rede
+                            await distribuirComissoesRede(userData, preco, user.uid);
 
-                            // 3. Adicionar plano à coleção de ativos
+                            // 3. Registra o Ativo de Mineração
                             const agora = new Date();
                             const agoraMS = agora.getTime();
 
@@ -422,7 +417,7 @@
 
                             Swal.fire({
                                 title: "Sucesso!",
-                                text: "Investimento realizado! Seu lucro cairá diariamente no horário exato desta compra.",
+                                text: "Investimento ativo! Acompanhe seus lucros diários em 'Ativos'.",
                                 icon: "success",
                                 confirmButtonColor: "#00a3e0"
                             }).then(() => {
