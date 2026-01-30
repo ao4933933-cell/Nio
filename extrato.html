@@ -3,247 +3,257 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NIO - Extrato Financeiro Real</title>
+    <title>NIO Premium - Extrato de Luxo</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --nio-blue: #00a3e0;
-            --dark-bg: #010409;
-            --glass-card: rgba(255, 255, 255, 0.03);
+            --nio-blue: #00e5ff;
+            --nio-blue-dark: #00a3e0;
+            --dark-bg: #030712;
+            --glass: rgba(255, 255, 255, 0.03);
             --glass-border: rgba(255, 255, 255, 0.08);
-            --nio-gradient: linear-gradient(135deg, #00a3e0 0%, #005a87 100%);
-            --income: #00ff88;
-            --outcome: #ff4d4d;
-            --warning: #ffa500;
+            --income: #00ffa3;
+            --outcome: #ff3366;
+            --gold: #ffc107;
+            --accent-gradient: linear-gradient(135deg, #00e5ff 0%, #0077ff 100%);
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Inter', sans-serif;
+            font-family: 'Plus Jakarta Sans', sans-serif;
             -webkit-tap-highlight-color: transparent;
         }
 
         body {
             background-color: var(--dark-bg);
-            color: white;
-            /* Padding removido pois não há mais navbar inferior */
-            padding-bottom: 40px; 
-            background-image: radial-gradient(circle at 50% 100%, #0a1a2f 0%, transparent 50%);
+            color: #ffffff;
             min-height: 100vh;
+            background-image: 
+                radial-gradient(circle at 0% 0%, rgba(0, 229, 255, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 100% 100%, rgba(0, 119, 255, 0.05) 0%, transparent 40%);
+            padding-bottom: 50px;
         }
 
-        /* BOTÃO VOLTAR */
-        .back-nav {
-            padding: 20px 25px 0;
-            display: flex;
-            align-items: center;
-        }
-
-        .btn-back {
-            background: var(--glass-card);
-            border: 1px solid var(--glass-border);
-            color: white;
-            width: 40px;
-            height: 40px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-decoration: none;
-            transition: 0.3s;
-        }
-
-        .btn-back:active {
-            transform: scale(0.9);
-        }
-
-        /* HEADER */
-        .header-statement {
-            padding: 30px 25px 20px;
-            text-align: center;
-        }
-
-        .header-statement h1 {
-            font-weight: 800;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            font-size: 1.6rem;
-            background: var(--nio-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        /* FILTROS RÁPIDOS */
-        .filter-scroll {
-            display: flex;
-            overflow-x: auto;
-            padding: 10px 20px 25px;
-            gap: 10px;
-            scrollbar-width: none;
-        }
-
-        .filter-scroll::-webkit-scrollbar { display: none; }
-
-        .filter-btn {
-            white-space: nowrap;
-            padding: 12px 22px;
-            border-radius: 15px;
-            background: var(--glass-card);
-            border: 1px solid var(--glass-border);
-            color: rgba(255,255,255,0.5);
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            cursor: pointer;
-            transition: 0.3s;
-        }
-
-        .filter-btn.active {
-            background: var(--nio-blue);
-            color: white;
-            border-color: var(--nio-blue);
-            box-shadow: 0 4px 15px rgba(0, 163, 224, 0.3);
-        }
-
-        /* LISTA DE TRANSAÇÕES */
-        .timeline-container {
-            padding: 0 20px;
-            min-height: 200px;
-        }
-
-        .date-divider {
-            font-size: 10px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            color: var(--nio-blue);
-            margin: 25px 0 15px 5px;
-            font-weight: 800;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .date-divider::after {
-            content: "";
-            height: 1px;
-            flex: 1;
-            background: var(--glass-border);
-        }
-
-        .transaction-card {
-            background: var(--glass-card);
-            border: 1px solid var(--glass-border);
-            border-radius: 22px;
-            padding: 18px;
+        /* HEADER PREMIUM */
+        .premium-nav {
+            padding: 25px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 12px;
-            backdrop-filter: blur(15px);
-            animation: slideUp 0.4s ease-out forwards;
         }
 
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .tx-left {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .tx-icon {
-            width: 48px;
-            height: 48px;
+        .btn-back-lux {
+            width: 45px;
+            height: 45px;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
             border-radius: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
+            color: white;
+            text-decoration: none;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        /* Categorias de Ícones */
-        .icon-deposito { background: rgba(0, 255, 136, 0.1); color: var(--income); }
-        .icon-saque { background: rgba(255, 77, 77, 0.1); color: var(--outcome); }
-        .icon-plano { background: rgba(0, 163, 224, 0.1); color: var(--nio-blue); }
-        .icon-comissao { background: rgba(212, 175, 55, 0.1); color: #d4af37; }
+        .btn-back-lux:active { transform: scale(0.9); background: rgba(255,255,255,0.1); }
 
-        .tx-info h4 {
-            font-size: 14px;
+        .header-section {
+            padding: 0 25px 30px;
+            text-align: left;
+        }
+
+        .header-section h1 {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -1px;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-section p {
+            font-size: 13px;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+
+        /* FILTROS DESIGN CHIP */
+        .filter-wrapper {
+            display: flex;
+            overflow-x: auto;
+            padding: 0 25px 30px;
+            gap: 12px;
+            scrollbar-width: none;
+        }
+        .filter-wrapper::-webkit-scrollbar { display: none; }
+
+        .chip {
+            padding: 10px 20px;
+            border-radius: 20px;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            color: #64748b;
+            font-size: 12px;
             font-weight: 600;
-            margin-bottom: 4px;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: 0.4s;
         }
 
-        .tx-info p {
-            font-size: 10px;
-            color: rgba(255,255,255,0.4);
+        .chip.active {
+            background: white;
+            color: var(--dark-bg);
+            border-color: white;
+            box-shadow: 0 10px 20px rgba(255,255,255,0.1);
         }
 
-        .tx-right {
-            text-align: right;
+        /* TIMELINE */
+        .timeline { padding: 0 20px; }
+
+        .date-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin: 30px 0 15px 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .date-label::after { content: ""; height: 1px; flex: 1; background: linear-gradient(90deg, var(--glass-border), transparent); }
+
+        /* CARD DE TRANSAÇÃO PREMIUM */
+        .lux-card {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            backdrop-filter: blur(12px);
+            animation: fadeIn 0.6s ease-out backwards;
         }
 
-        .tx-amount {
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .lux-left { display: flex; align-items: center; gap: 16px; }
+
+        .lux-icon-box {
+            width: 54px;
+            height: 54px;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .lux-icon-box::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            opacity: 0.15;
+            background: currentColor;
+        }
+
+        .lux-info h4 {
             font-size: 15px;
+            font-weight: 700;
+            color: #f8fafc;
+            margin-bottom: 2px;
+        }
+
+        .lux-info p {
+            font-size: 11px;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .lux-right { text-align: right; }
+
+        .lux-amount {
+            font-size: 16px;
             font-weight: 800;
             margin-bottom: 4px;
+            letter-spacing: -0.5px;
         }
 
-        .tx-status {
+        .lux-badge {
             font-size: 9px;
-            text-transform: uppercase;
-            font-weight: 900;
-            padding: 2px 8px;
-            border-radius: 5px;
+            font-weight: 800;
+            padding: 4px 10px;
+            border-radius: 8px;
             background: rgba(255,255,255,0.05);
+            color: #94a3b8;
+            text-transform: uppercase;
         }
 
-        /* ESTADOS VAZIOS E LOADING */
-        .empty-state {
+        /* ESTADOS VAZIOS */
+        .empty-premium {
             text-align: center;
-            padding: 50px 20px;
-            color: rgba(255,255,255,0.2);
+            padding: 80px 40px;
+        }
+        .empty-premium i {
+            font-size: 50px;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 20px;
+            opacity: 0.5;
         }
 
-        .empty-state i { font-size: 40px; margin-bottom: 15px; }
+        /* CORES POR TIPO */
+        .type-deposito { color: var(--income); }
+        .type-saque, .type-saque_lucro { color: var(--outcome); }
+        .type-plano { color: var(--nio-blue); }
+        .type-comissao { color: var(--gold); }
 
     </style>
 </head>
 <body>
 
-    <nav class="back-nav">
-        <a href="perfil.html" class="btn-back">
-            <i class="fa-solid fa-chevron-left"></i>
+    <nav class="premium-nav">
+        <a href="perfil.html" class="btn-back-lux">
+            <i class="fa-solid fa-arrow-left"></i>
         </a>
-    </nav>
+        <div style="width: 45px;"></div> </nav>
 
-    <header class="header-statement">
+    <section class="header-section">
         <h1>Meu Extrato</h1>
-        <p style="color: rgba(255,255,255,0.4); font-size: 11px;">Monitoramento de fluxo em tempo real</p>
-    </header>
+        <p>Acompanhe sua evolução financeira na NIO.</p>
+    </section>
 
-    <div class="filter-scroll" id="filterContainer">
-        <button class="filter-btn active" data-type="all">TUDO</button>
-        <button class="filter-btn" data-type="deposito">DEPÓSITOS</button>
-        <button class="filter-btn" data-type="saque">SAQUES</button>
-        <button class="filter-btn" data-type="comissao">COMISSÕES</button>
-        <button class="filter-btn" data-type="plano">PLANOS</button>
+    <div class="filter-wrapper" id="filterContainer">
+        <div class="chip active" data-type="all">Tudo</div>
+        <div class="chip" data-type="deposito">Depósitos</div>
+        <div class="chip" data-type="saque">Saques</div>
+        <div class="chip" data-type="plano">Planos</div>
+        <div class="chip" data-type="comissao">Indicações</div>
     </div>
 
-    <main class="timeline-container" id="transactionsList">
-        <div class="empty-state">
-            <i class="fa-solid fa-circle-notch fa-spin"></i>
-            <p>Sincronizando transações...</p>
+    <main class="timeline" id="mainTimeline">
+        <div class="empty-premium">
+            <i class="fa-solid fa-compass fa-spin"></i>
+            <p style="color: #64748b;">Sincronizando com o blockchain...</p>
         </div>
     </main>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, query, where, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
@@ -259,132 +269,130 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        let currentFilter = "all";
         let userUID = null;
-        let unsubscribe = null;
+        let currentFilter = "all";
+        let listeners = [];
 
-        // Monitor de Autenticação
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 userUID = user.uid;
-                loadTransactions();
+                initLuxMonitor();
             } else {
                 window.location.href = "login.html";
             }
         });
 
-        // Configuração de Filtros
-        const filterBtns = document.querySelectorAll('.filter-btn');
-        filterBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                filterBtns.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                currentFilter = btn.getAttribute('data-type');
-                loadTransactions(); 
+        // Eventos de Filtro
+        document.querySelectorAll('.chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+                currentFilter = chip.getAttribute('data-type');
+                initLuxMonitor();
             });
         });
 
-        function loadTransactions() {
-            const listElement = document.getElementById('transactionsList');
+        function parseLuxDate(data) {
+            if (!data) return new Date();
+            if (data.toDate) return data.toDate();
+            if (typeof data === 'string') return new Date(data.replace(/ de /g, ' '));
+            return new Date(data);
+        }
+
+        async function initLuxMonitor() {
+            const container = document.getElementById('mainTimeline');
+            listeners.forEach(u => u());
+            listeners = [];
+
+            // Monitora múltiplas coleções simultaneamente
+            const targets = ["transactions", "ativos", "historico"];
             
-            // Cancela o listener anterior se existir para evitar duplicidade
-            if (unsubscribe) unsubscribe();
+            targets.forEach(colName => {
+                const q = query(collection(db, colName), where("userId", "==", userUID));
+                const unsub = onSnapshot(q, () => refreshPremiumUI());
+                listeners.push(unsub);
+            });
 
-            // Query Base: Transações do usuário ordenadas por data
-            let q;
-            
-            if (currentFilter === "all") {
-                q = query(
-                    collection(db, "transactions"),
-                    where("uid", "==", userUID),
-                    orderBy("timestamp", "desc")
-                );
-            } else {
-                q = query(
-                    collection(db, "transactions"),
-                    where("uid", "==", userUID),
-                    where("type", "==", currentFilter),
-                    orderBy("timestamp", "desc")
-                );
-            }
-
-            unsubscribe = onSnapshot(q, (snapshot) => {
-                listElement.innerHTML = "";
-                let lastDate = "";
-
-                if (snapshot.empty) {
-                    listElement.innerHTML = `
-                        <div class="empty-state">
-                            <i class="fa-solid fa-receipt"></i>
-                            <p>Nenhuma transação encontrada nesta categoria.</p>
-                        </div>`;
-                    return;
+            async function refreshPremiumUI() {
+                let masterList = [];
+                for (const col of targets) {
+                    const snap = await getDocs(query(collection(db, col), where("userId", "==", userUID)));
+                    snap.forEach(doc => {
+                        const d = doc.data();
+                        const date = parseLuxDate(d.timestamp || d.dataCompra || d.dataRegistro);
+                        masterList.push({ ...d, dateObj: date, source: col });
+                    });
                 }
 
-                snapshot.forEach((doc) => {
-                    const tx = doc.data();
-                    const date = tx.timestamp?.toDate() || new Date();
-                    const dateString = date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
+                masterList.sort((a, b) => b.dateObj - a.dateObj);
 
-                    // Divisor de data automático
-                    if (dateString !== lastDate) {
-                        const divider = document.createElement('div');
-                        divider.className = 'date-divider';
-                        divider.innerText = dateString;
-                        listElement.appendChild(divider);
-                        lastDate = dateString;
-                    }
+                if (currentFilter !== "all") {
+                    masterList = masterList.filter(t => {
+                        const type = (t.type || t.tipo || "").toLowerCase();
+                        if (currentFilter === "saque") return type.includes("saque");
+                        if (currentFilter === "plano") return type === "plano" || t.source === "ativos";
+                        return type === currentFilter;
+                    });
+                }
 
-                    renderTransactionCard(tx, listElement);
-                });
-            }, (error) => {
-                console.error("Erro ao carregar transações:", error);
-                listElement.innerHTML = `<div class="empty-state"><p>Erro ao carregar dados.</p></div>`;
+                renderPremiumCards(masterList, container);
+            }
+        }
+
+        function renderPremiumCards(data, container) {
+            container.innerHTML = "";
+            if (data.length === 0) {
+                container.innerHTML = `<div class="empty-premium"><i class="fa-solid fa-receipt"></i><p>Nenhuma atividade encontrada.</p></div>`;
+                return;
+            }
+
+            let lastDate = "";
+            data.forEach((tx, index) => {
+                const dateStr = tx.dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
+                
+                if (dateStr !== lastDate) {
+                    const head = document.createElement('div');
+                    head.className = 'date-label';
+                    head.innerText = dateStr;
+                    container.appendChild(head);
+                    lastDate = dateStr;
+                }
+
+                const type = (tx.type || tx.tipo || (tx.source === "ativos" ? "plano" : "deposito")).toLowerCase();
+                const isIncome = ["deposito", "comissao", "bonus", "rendimento"].includes(type);
+                const valor = tx.valorOriginal || tx.amount || tx.valorInvestido || 0;
+
+                const card = document.createElement('div');
+                card.className = 'lux-card';
+                card.style.animationDelay = `${index * 0.05}s`;
+
+                card.innerHTML = `
+                    <div class="lux-left">
+                        <div class="lux-icon-box type-${type.replace('_lucro','')}">
+                            <i class="fa-solid ${getLuxIcon(type)}"></i>
+                        </div>
+                        <div class="lux-info">
+                            <h4>${tx.titulo || tx.nome || tx.title || 'Atividade'}</h4>
+                            <p>${tx.status === 'ativo' ? 'Rendimento Constante' : 'Processamento NIO'}</p>
+                        </div>
+                    </div>
+                    <div class="lux-right">
+                        <div class="lux-amount" style="color: ${isIncome ? 'var(--income)' : 'var(--outcome)'}">
+                            ${isIncome ? '+' : '-'} R$ ${parseFloat(valor).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+                        </div>
+                        <div class="lux-badge">${tx.source}</div>
+                    </div>
+                `;
+                container.appendChild(card);
             });
         }
 
-        function renderTransactionCard(tx, container) {
-            const card = document.createElement('div');
-            card.className = 'transaction-card';
-
-            const isIncome = ["deposito", "comissao", "bonus"].includes(tx.type);
-            const amountColor = isIncome ? "var(--income)" : "var(--outcome)";
-            const prefix = isIncome ? "+" : "-";
-            
-            let iconClass = "fa-solid fa-question";
-            if(tx.type === "deposito") iconClass = "fa-solid fa-arrow-down-long";
-            if(tx.type === "saque") iconClass = "fa-solid fa-arrow-up-long";
-            if(tx.type === "plano") iconClass = "fa-solid fa-bolt";
-            if(tx.type === "comissao") iconClass = "fa-solid fa-gift";
-
-            card.innerHTML = `
-                <div class="tx-left">
-                    <div class="tx-icon icon-${tx.type}">
-                        <i class="${iconClass}"></i>
-                    </div>
-                    <div class="tx-info">
-                        <h4>${tx.title || 'Transação'}</h4>
-                        <p>${tx.description || 'NIO Network'}</p>
-                    </div>
-                </div>
-                <div class="tx-right">
-                    <div class="tx-amount" style="color: ${amountColor};">
-                        ${prefix} R$ ${parseFloat(tx.amount).toFixed(2).replace('.', ',')}
-                    </div>
-                    <div class="tx-status" style="color: ${getStatusColor(tx.status)};">
-                        ${tx.status || 'Concluído'}
-                    </div>
-                </div>
-            `;
-            container.appendChild(card);
-        }
-
-        function getStatusColor(status) {
-            const s = status?.toLowerCase();
-            if (s === 'pendente') return "var(--warning)";
-            if (s === 'confirmado' || s === 'concluído') return "var(--income)";
-            if (s === 'cancelado') return "var(--outcome)";
-            return "var(--nio-blue)";
+        function getLuxIcon(type) {
+            if (type.includes("saque")) return "fa-arrow-trend-up";
+            if (type === "deposito") return "fa-wallet";
+            if (type === "plano") return "fa-gem";
+            if (type === "comissao") return "fa-crown";
+            return "fa-bolt";
         }
     </script>
 </body>
