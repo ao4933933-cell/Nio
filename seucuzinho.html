@@ -164,13 +164,15 @@
             display: flex; align-items: center; justify-content: space-between;
             padding: 20px; background: rgba(255,255,255,0.02);
             border: 1px solid var(--glass-border); border-radius: 15px; margin-bottom: 10px;
+            transition: 0.3s;
         }
+        .leader-card:hover { background: rgba(255,255,255,0.05); transform: scale(1.01); }
         .leader-rank { 
             width: 40px; height: 40px; border-radius: 50%; background: var(--nio-blue);
             display: flex; align-items: center; justify-content: center; font-weight: 800; color: #000;
         }
-        .leader-email { flex: 1; margin-left: 20px; font-weight: 600; }
-        .leader-count { font-size: 12px; font-weight: 800; color: var(--success); }
+        .leader-email { flex: 1; margin-left: 20px; font-weight: 600; color: #fff; }
+        .leader-count { font-size: 12px; font-weight: 800; color: var(--success); text-align: right; }
 
         .active-plans-box { background: rgba(0,0,0,0.2); border-radius: 24px; padding: 25px; border: 1px solid var(--glass-border); }
 
@@ -305,7 +307,7 @@
 
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;">
                             <button id="vip-toggle-btn" class="btn-action btn-vip" style="justify-content: center;" onclick="toggleVipSearch()">CONTRATAR VIP</button>
-                            <button class="btn-action btn-reject" style="justify-content: center;" onclick="banUser()">BANIR</button>
+                            <button id="ban-toggle-btn" class="btn-action btn-reject" style="justify-content: center;" onclick="banUser()">RESTRINGIR</button>
                         </div>
                     </div>
 
@@ -369,6 +371,7 @@
 
         let currentSearchUid = null;
         let currentVipStatus = false;
+        let currentBanStatus = false;
 
         onAuthStateChanged(auth, (user) => {
             if (!user || !ADMIN_EMAILS.includes(user.email)) {
@@ -393,7 +396,7 @@
         };
 
         function initAdminEngine() {
-            // Monitoramento de usuários (Global)
+            // Dashboard e Novos Usuários em Tempo Real
             onSnapshot(collection(db, "users"), (snap) => {
                 let liqTotal = 0, lucroTotal = 0;
                 const tbody = document.getElementById('table-new-users');
@@ -411,7 +414,7 @@
                             <td>${d.email}</td>
                             <td><span style="color:gray">${d.indicadoPor || 'Direto'}</span></td>
                             <td><b>${formatBRL(d.saldo)}</b></td>
-                            <td><span class="badge-status status-active">ATIVO</span></td>
+                            <td><span class="badge-status status-active">${d.banido ? 'BANIDO' : 'ATIVO'}</span></td>
                         </tr>`;
 
                     if(d.contratado === true) {
@@ -420,7 +423,7 @@
                                 <td>${d.email}</td>
                                 <td>${formatBRL(d.saldo)}</td>
                                 <td style="color:var(--success)">${formatBRL(d.saldoLucro)}</td>
-                                <td><button class="btn-action btn-reject" onclick="toggleContrato('${u.id}', false)">Remover VIP</button></td>
+                                <td><button class="btn-action btn-reject" onclick="toggleContrato('${u.id}', false)">REMOVER VIP</button></td>
                             </tr>`;
                     }
                 });
@@ -430,7 +433,7 @@
                 document.getElementById('stat-users-today').innerText = snap.size;
             });
 
-            // Monitoramento de Saques
+            // Saques Pendentes
             onSnapshot(query(collection(db, "solicitacoes_saque"), where("status", "==", "pendente")), (snap) => {
                 const tbody = document.getElementById('table-withdrawals');
                 let pendingVal = 0;
@@ -455,56 +458,75 @@
             });
         }
 
-        // --- TOP LIDERES ENGINE ---
+        // --- CORREÇÃO DO RANKING TOP LÍDERES ---
         async function loadTopLeaders() {
             const container = document.getElementById('ranking-container');
-            container.innerHTML = "<p style='text-align:center; color:gray;'>Calculando influência de rede...</p>";
+            container.innerHTML = `
+                <div style="text-align:center; padding: 40px;">
+                    <div class="spinner" style="margin: 0 auto 20px;"></div>
+                    <p style="color:var(--nio-blue); font-weight:800; letter-spacing:2px;">MAPEANDO REDE NIO...</p>
+                </div>`;
 
-            const allUsersSnap = await getDocs(collection(db, "users"));
-            const usersList = [];
-            
-            allUsersSnap.forEach(doc => {
-                usersList.push({ id: doc.id, email: doc.email });
-            });
+            try {
+                const allUsersSnap = await getDocs(collection(db, "users"));
+                const usersMap = {};
+                const leadersList = [];
 
-            const leadersData = [];
+                // 1. Criar mapa de ID -> Email para busca rápida
+                allUsersSnap.forEach(u => {
+                    usersMap[u.id] = u.data().email || "Usuário Sem Email";
+                });
 
-            for (const user of usersList) {
-                const networkQuery = query(collection(db, "users"), where("indicadoPor", "==", user.id));
-                const networkSnap = await getDocs(networkQuery);
-                if (networkSnap.size > 0) {
-                    leadersData.push({ email: user.email, count: networkSnap.size });
+                // 2. Contar indicações por ID
+                const counts = {};
+                allUsersSnap.forEach(u => {
+                    const indicadoPor = u.data().indicadoPor;
+                    if (indicadoPor && indicadoPor !== "direto") {
+                        counts[indicadoPor] = (counts[indicadoPor] || 0) + 1;
+                    }
+                });
+
+                // 3. Formatar lista final com emails reais
+                for (const [id, count] of Object.entries(counts)) {
+                    if (usersMap[id]) {
+                        leadersList.push({ email: usersMap[id], count: count });
+                    }
                 }
+
+                // 4. Ordenar e Pegar Top 10
+                leadersList.sort((a, b) => b.count - a.count);
+                const top10 = leadersList.slice(0, 10);
+
+                container.innerHTML = "";
+                if (top10.length === 0) {
+                    container.innerHTML = "<p style='text-align:center; color:gray;'>Nenhum líder com rede encontrado ainda.</p>";
+                    return;
+                }
+
+                top10.forEach((leader, index) => {
+                    container.innerHTML += `
+                        <div class="leader-card">
+                            <div class="leader-rank">${index + 1}</div>
+                            <div class="leader-email">${leader.email}</div>
+                            <div class="leader-count">${leader.count} Convidados</div>
+                        </div>`;
+                });
+
+            } catch (err) {
+                container.innerHTML = "<p style='color:red;'>Erro ao carregar ranking: " + err.message + "</p>";
             }
-
-            // Ordenar por maior número de indicados
-            leadersData.sort((a, b) => b.count - a.count);
-            const top10 = leadersData.slice(0, 10);
-
-            container.innerHTML = "";
-            top10.forEach((leader, index) => {
-                container.innerHTML += `
-                    <div class="leader-card">
-                        <div class="leader-rank">${index + 1}</div>
-                        <div class="leader-email">${leader.email}</div>
-                        <div class="leader-count">${leader.count} Convidados</div>
-                    </div>
-                `;
-            });
-
-            if(top10.length === 0) container.innerHTML = "<p style='color:gray'>Nenhum líder com rede ativa encontrado.</p>";
         }
 
-        // --- INTELIGÊNCIA DE BUSCA AVANÇADA ---
+        // --- BUSCA E CONTROLE DE USUÁRIO ---
         window.searchUser = async () => {
-            const email = document.getElementById('searchInput').value.trim();
-            if(!email) return;
+            const emailInput = document.getElementById('searchInput').value.trim();
+            if(!emailInput) return;
 
-            const q = query(collection(db, "users"), where("email", "==", email));
+            const q = query(collection(db, "users"), where("email", "==", emailInput));
             const snap = await getDocs(q);
 
             if(snap.empty) {
-                Swal.fire("Inexistente", "E-mail não cadastrado na NIO.", "error");
+                Swal.fire("Inexistente", "E-mail não localizado na base NIO.", "error");
                 return;
             }
 
@@ -512,21 +534,24 @@
             const d = uDoc.data();
             currentSearchUid = uDoc.id;
             currentVipStatus = d.contratado || false;
+            currentBanStatus = d.banido || false;
 
-            // Atualizar Botão VIP
+            // Interface Dinâmica dos Botões
             const vipBtn = document.getElementById('vip-toggle-btn');
-            if(currentVipStatus) {
-                vipBtn.innerText = "REMOVER VIP";
-                vipBtn.classList.replace('btn-vip', 'btn-reject');
-            } else {
-                vipBtn.innerText = "CONTRATAR VIP";
-                vipBtn.classList.replace('btn-reject', 'btn-vip');
-            }
+            const banBtn = document.getElementById('ban-toggle-btn');
 
+            vipBtn.innerText = currentVipStatus ? "REMOVER VIP" : "CONTRATAR VIP";
+            vipBtn.className = currentVipStatus ? "btn-action btn-reject" : "btn-action btn-vip";
+
+            banBtn.innerText = currentBanStatus ? "DESBANIR" : "RESTRINGIR";
+            banBtn.style.background = currentBanStatus ? "var(--success)" : "var(--danger)";
+
+            // Preenchimento de Dados
             document.getElementById('u-uid').innerText = uDoc.id;
             document.getElementById('u-balance').innerText = formatBRL(d.saldo);
             document.getElementById('u-profit').innerText = formatBRL(d.saldoLucro);
 
+            // Buscar Sponsor
             if(d.indicadoPor && d.indicadoPor !== "direto") {
                 const sponsorDoc = await getDocs(query(collection(db, "users"), where("__name__", "==", d.indicadoPor)));
                 document.getElementById('u-sponsor').innerText = sponsorDoc.empty ? "ID: " + d.indicadoPor : sponsorDoc.docs[0].data().email;
@@ -534,68 +559,85 @@
                 document.getElementById('u-sponsor').innerText = "Entrada Direta";
             }
 
-            const qNetwork = query(collection(db, "users"), where("indicadoPor", "==", currentSearchUid));
-            const snapNetwork = await getDocs(qNetwork);
-            document.getElementById('u-network-count').innerText = snapNetwork.size + " Membros Diretos";
+            // Contar Rede Direta
+            const qNet = query(collection(db, "users"), where("indicadoPor", "==", currentSearchUid));
+            const snapNet = await getDocs(qNet);
+            document.getElementById('u-network-count').innerText = snapNet.size + " Membros Diretos";
 
+            // Listar Planos Ativos
             const qPlans = query(collection(db, "ativos"), where("userId", "==", currentSearchUid), where("status", "==", "ativo"));
             const snapPlans = await getDocs(qPlans);
             const plansBox = document.getElementById('user-active-plans-list');
-            plansBox.innerHTML = snapPlans.empty ? "<p style='color:gray'>Sem planos ativos.</p>" : "";
+            plansBox.innerHTML = snapPlans.empty ? "<p style='color:gray'>Sem planos ativos no momento.</p>" : "";
+            
             snapPlans.forEach(p => {
                 const pData = p.data();
                 plansBox.innerHTML += `
-                    <div style="background:rgba(255,255,255,0.03); padding:12px; border-radius:12px; margin-bottom:8px; border-left:3px solid var(--nio-blue);">
+                    <div style="background:rgba(255,255,255,0.03); padding:15px; border-radius:12px; margin-bottom:10px; border-left:3px solid var(--nio-blue);">
                         <div style="font-size:12px; font-weight:800; color:#fff;">${pData.nome}</div>
                         <div style="font-size:10px; color:var(--success);">Rendimento: ${formatBRL(pData.lucroDiario)}/dia</div>
+                        <div style="font-size:10px; color:gray;">Total Investido: ${formatBRL(pData.valorInvestido)}</div>
                     </div>`;
             });
 
             document.getElementById('userDetails').classList.remove('hidden');
         };
 
+        // --- AÇÕES DO PAINEL ---
         window.toggleVipSearch = async () => {
             const newStatus = !currentVipStatus;
             await updateDoc(doc(db, "users", currentSearchUid), { contratado: newStatus });
-            Swal.fire("Sucesso", newStatus ? "Membro agora é VIP!" : "Membro removido do VIP.", "success");
+            Swal.fire("Sucesso", newStatus ? "Membro promovido a VIP!" : "Contrato VIP encerrado.", "success");
             searchUser();
+        };
+
+        window.banUser = async () => {
+            const newBanStatus = !currentBanStatus;
+            const confirm = await Swal.fire({
+                title: newBanStatus ? "Restringir Usuário?" : "Restaurar Acesso?",
+                text: newBanStatus ? "O investidor não poderá realizar saques." : "O investidor voltará a operar normalmente.",
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonColor: newBanStatus ? "#ff3366" : "#00ff88"
+            });
+            
+            if(confirm.isConfirmed) {
+                await updateDoc(doc(db, "users", currentSearchUid), { banido: newBanStatus });
+                Swal.fire("Concluído", "Status de acesso alterado.", "success");
+                searchUser();
+            }
         };
 
         window.editData = async (field, label) => {
             const { value: newVal } = await Swal.fire({
                 title: `Ajustar ${label}`,
                 input: 'number',
-                background: '#010409', color: '#fff'
+                background: '#010409', color: '#fff',
+                confirmButtonColor: '#00a3e0',
+                showCancelButton: true
             });
 
-            if (newVal) {
+            if (newVal !== undefined && newVal !== null && newVal !== "") {
                 await updateDoc(doc(db, "users", currentSearchUid), { [field]: parseFloat(newVal) });
+                Swal.fire("Atualizado", "Banco de dados sincronizado.", "success");
                 searchUser(); 
             }
         };
 
         window.aprovarSaque = async (docId, uid, valor) => {
             await updateDoc(doc(db, "solicitacoes_saque", docId), { status: "aprovado" });
-            Swal.fire("Pago", "Status atualizado.", "success");
+            Swal.fire("Pago", "Saque marcado como concluído.", "success");
         };
 
         window.rejeitarSaque = async (docId, uid, valor) => {
             await updateDoc(doc(db, "solicitacoes_saque", docId), { status: "rejeitado" });
             await updateDoc(doc(db, "users", uid), { saldoLucro: increment(valor) });
-            Swal.fire("Estornado", "Saldo devolvido.", "info");
+            Swal.fire("Estornado", "Saldo devolvido à conta do investidor.", "info");
         };
 
         window.toggleContrato = async (uid, status) => {
             await updateDoc(doc(db, "users", uid), { contratado: status });
-            Swal.fire("Atualizado", "Status VIP modificado.", "success");
-        };
-
-        window.banUser = async () => {
-            const confirm = await Swal.fire({ title: "Banir?", icon: "warning", showCancelButton: true });
-            if(confirm.isConfirmed) {
-                await updateDoc(doc(db, "users", currentSearchUid), { banido: true });
-                Swal.fire("Banido", "Acesso bloqueado.", "success");
-            }
+            Swal.fire("Sucesso", "Status VIP atualizado.", "success");
         };
 
     </script>
