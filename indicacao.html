@@ -268,6 +268,7 @@
                 <span id="inviteLinkDisplay">Carregando link...</span>
                 <button class="btn-action-copy" onclick="copyMyInviteLink()">COPIAR</button>
             </div>
+            <p style="font-size: 10px; color: var(--nio-blue); margin-top: 15px; opacity: 0.7;">Seu código: <b id="shortIdDisplay">...</b></p>
         </div>
 
         <section class="network-monitor">
@@ -329,10 +330,17 @@
             if (user) {
                 currentUser = user;
                 const baseUrl = window.location.origin;
-                const link = `${baseUrl}/registro.html?ref=${user.uid}`;
                 
-                document.getElementById('inviteLinkDisplay').innerText = link;
-                document.getElementById('qrCodeBox').innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${link}" alt="QR Code NIO">`;
+                // EXTRAÇÃO DOS 8 PRIMEIROS CARACTERES DO UID
+                const shortId = user.uid.substring(0, 8);
+                const fullInviteLink = `${baseUrl}/registro.html?ref=${user.uid}`;
+                
+                // EXIBIÇÃO VISUAL CURTA
+                document.getElementById('shortIdDisplay').innerText = shortId;
+                document.getElementById('inviteLinkDisplay').innerText = fullInviteLink;
+                
+                // QR CODE COM LINK COMPLETO (NECESSÁRIO PARA O REGISTRO FUNCIONAR)
+                document.getElementById('qrCodeBox').innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${fullInviteLink}" alt="QR Code NIO">`;
                 
                 await buildNetwork(user.uid);
                 renderLevel(1);
@@ -346,12 +354,12 @@
             document.getElementById('teamContainer').innerHTML = '';
             
             try {
-                // NÍVEL 1
+                // NÍVEL 1 (BUSCA QUEM FOI INDICADO POR VOCÊ)
                 const q1 = query(collection(db, "users"), where("indicadoPor", "==", userId));
                 const snap1 = await getDocs(q1);
                 networkData.level1 = snap1.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                // NÍVEL 2
+                // NÍVEL 2 (BUSCA QUEM FOI INDICADO PELO SEU NÍVEL 1)
                 const lv2Promises = networkData.level1.map(async (member) => {
                     const q2 = query(collection(db, "users"), where("indicadoPor", "==", member.id));
                     const snap2 = await getDocs(q2);
@@ -360,7 +368,7 @@
                 const resultsLv2 = await Promise.all(lv2Promises);
                 networkData.level2 = resultsLv2.flat();
 
-                // NÍVEL 3
+                // NÍVEL 3 (BUSCA QUEM FOI INDICADO PELO SEU NÍVEL 2)
                 const lv3Promises = networkData.level2.map(async (member) => {
                     const q3 = query(collection(db, "users"), where("indicadoPor", "==", member.id));
                     const snap3 = await getDocs(q3);
@@ -376,7 +384,6 @@
             }
         }
 
-        // FUNÇÃO DE CRÉDITO DE COMISSÃO (PARA SALDO LUCRO)
         async function processCommission(sponsorId, amount, level, fromUser) {
             if (!sponsorId) return;
             
@@ -388,13 +395,11 @@
             try {
                 const sponsorRef = doc(db, "users", sponsorId);
                 
-                // 1. Atualiza o saldoLucro do patrocinador
                 await updateDoc(sponsorRef, {
                     saldoLucro: increment(commissionValue),
                     totalComissaoRede: increment(commissionValue)
                 });
 
-                // 2. Registra no histórico (transações)
                 await addDoc(collection(db, "transactions"), {
                     userId: sponsorId,
                     type: "comissao",
@@ -404,8 +409,6 @@
                     timestamp: serverTimestamp(),
                     status: "concluido"
                 });
-
-                console.log(`Comissão de R$ ${commissionValue} enviada para o Saldo Lucro de ${sponsorId}`);
             } catch (err) {
                 console.error("Erro ao processar comissão:", err);
             }
@@ -417,10 +420,12 @@
             const data = networkData[`level${lv}`];
 
             document.querySelectorAll('.commission-card').forEach(c => c.classList.remove('active-lv'));
-            document.getElementById(`cardLv${lv}`).classList.add('active-lv');
+            const activeCard = document.getElementById(`cardLv${lv}`);
+            if(activeCard) activeCard.classList.add('active-lv');
 
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(`btnLv${lv}`).classList.add('active');
+            const activeBtn = document.getElementById(`btnLv${lv}`);
+            if(activeBtn) activeBtn.classList.add('active');
 
             container.innerHTML = "";
             
