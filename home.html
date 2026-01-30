@@ -304,29 +304,49 @@
             });
         }
 
+        // FUNÇÃO DE PAGAMENTO DE COMISSÕES REVISADA
         async function pagarComissoes(padrinhoId, valorPlano, nivel) {
+            // Regra: Nível 1 = 15%, Nível 2 = 3%, Nível 3 = 1%
             if (!padrinhoId || padrinhoId === "direto" || nivel > 3) return;
 
-            const padrinhoRef = doc(db, "users", padrinhoId);
-            const padrinhoSnap = await getDoc(padrinhoRef);
+            try {
+                const padrinhoRef = doc(db, "users", padrinhoId);
+                const padrinhoSnap = await getDoc(padrinhoRef);
 
-            if (padrinhoSnap.exists()) {
-                let porcentagem = 0;
-                if (nivel === 1) porcentagem = 0.15;
-                if (nivel === 2) porcentagem = 0.03;
-                if (nivel === 3) porcentagem = 0.01;
+                if (padrinhoSnap.exists()) {
+                    let porcentagem = 0;
+                    if (nivel === 1) porcentagem = 0.15;
+                    else if (nivel === 2) porcentagem = 0.03;
+                    else if (nivel === 3) porcentagem = 0.01;
 
-                const comissao = valorPlano * porcentagem;
+                    const comissao = valorPlano * porcentagem;
 
-                await updateDoc(padrinhoRef, {
-                    saldo: increment(comissao),
-                    totalGanhos: increment(comissao)
-                });
+                    // Atualiza Saldo de Lucro do padrinho (onde caem as comissões)
+                    await updateDoc(padrinhoRef, {
+                        saldoLucro: increment(comissao), // Mudado para saldoLucro para separar de depósitos
+                        totalComissaoRede: increment(comissao) // Histórico total da rede
+                    });
 
-                console.log(`Comissão Nível ${nivel} de R$ ${comissao} paga para: ${padrinhoId}`);
+                    // Registra na coleção de transações para o extrato do padrinho
+                    await addDoc(collection(db, "transacoes"), {
+                        userId: padrinhoId,
+                        tipo: "comissao_rede",
+                        valor: comissao,
+                        nivel: nivel,
+                        origem: auth.currentUser.uid,
+                        timestamp: serverTimestamp()
+                    });
 
-                const proximoPadrinhoId = padrinhoSnap.data().indicadoPor;
-                await pagarComissoes(proximoPadrinhoId, valorPlano, nivel + 1);
+                    console.log(`Sucesso: Comissão Nível ${nivel} (R$ ${comissao}) paga para ${padrinhoId}`);
+
+                    // Busca o próximo padrinho na hierarquia para o próximo nível
+                    const proximoPadrinhoId = padrinhoSnap.data().indicadoPor;
+                    if (proximoPadrinhoId) {
+                        await pagarComissoes(proximoPadrinhoId, valorPlano, nivel + 1);
+                    }
+                }
+            } catch (err) {
+                console.error("Erro no processamento da comissão:", err);
             }
         }
 
@@ -343,6 +363,7 @@
                 if (!userSnap.exists()) return;
 
                 const userData = userSnap.data();
+                // O usuário compra usando o 'saldo' (depósitos)
                 const saldoAtual = userData.saldo || 0;
 
                 if (saldoAtual < preco) {
@@ -369,22 +390,21 @@
                         try {
                             const planoData = planos.find(p => p.id === id);
                             
-                            // 1. Descontar saldo e marcar VIP
+                            // 1. Descontar saldo do comprador e atualizar status
                             await updateDoc(userRef, {
                                 saldo: increment(-preco),
                                 totalInvestido: increment(preco),
                                 isVip: true
                             });
 
-                            // 2. Comissões em cascata
+                            // 2. DISPARAR COMISSÕES PARA A REDE (15%, 3%, 1%)
                             if (userData.indicadoPor && userData.indicadoPor !== "direto") {
                                 await pagarComissoes(userData.indicadoPor, preco, 1);
                             }
 
                             // 3. Adicionar plano à coleção de ativos
-                            // LOGICA DE LUCRO BASEADA NA HORA DA COMPRA
                             const agora = new Date();
-                            const agoraMS = agora.getTime(); // Timestamp em milissegundos
+                            const agoraMS = agora.getTime();
 
                             await addDoc(collection(db, "ativos"), {
                                 userId: user.uid,
@@ -393,9 +413,9 @@
                                 valorInvestido: preco,
                                 lucroDiario: preco * 0.20,
                                 lucroTotalAcumulado: 0,
-                                dataCompra: serverTimestamp(), // Campo legível para o Admin
-                                timestampCompra: agoraMS,     // Referência absoluta
-                                ultimoPagamento: agoraMS,    // O pagamento diário se baseia neste horário
+                                dataCompra: serverTimestamp(),
+                                timestampCompra: agoraMS,
+                                ultimoPagamento: agoraMS,
                                 cicloRestante: 15,
                                 status: "ativo"
                             });
