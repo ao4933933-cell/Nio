@@ -142,19 +142,33 @@
 
         .btn-login-link b { color: var(--nio-blue); }
 
+        /* Estilo SweetAlert Premium Minimalista */
         .nio-swal-popup {
-            background: rgba(10, 26, 47, 0.98) !important;
-            backdrop-filter: blur(20px) !important;
-            border: 1px solid var(--nio-blue) !important;
-            border-radius: 30px !important;
-            color: white !important;
+            background: rgba(7, 13, 23, 0.95) !important;
+            backdrop-filter: blur(15px) !important;
+            border: 1px solid var(--glass-border) !important;
+            border-radius: 25px !important;
+        }
+        .nio-swal-title {
+            color: #fff !important;
+            font-size: 1.2rem !important;
+            font-weight: 700 !important;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .nio-swal-content {
+            color: rgba(255,255,255,0.7) !important;
+            font-size: 0.9rem !important;
         }
         .nio-swal-button {
-            background-color: var(--nio-blue) !important;
-            border-radius: 15px !important;
-            padding: 12px 35px !important;
-            font-weight: 700 !important;
+            background: var(--nio-blue) !important;
+            border-radius: 12px !important;
+            padding: 10px 30px !important;
+            font-weight: 600 !important;
             text-transform: uppercase !important;
+            font-size: 0.8rem !important;
+            letter-spacing: 1px !important;
+            margin-top: 10px !important;
         }
     </style>
 </head>
@@ -204,7 +218,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, collection, query, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, query, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
           apiKey: "AIzaSyDyahOcB_wXbU_E0IzEXHBMsyw8uqJR2Es",
@@ -227,6 +241,8 @@
                 icon: icon,
                 customClass: {
                     popup: 'nio-swal-popup',
+                    title: 'nio-swal-title',
+                    htmlContainer: 'nio-swal-content',
                     confirmButton: 'nio-swal-button'
                 },
                 buttonsStyling: false
@@ -253,51 +269,68 @@
             const shortCode = document.getElementById('inviteCode').value;
 
             if(email !== emailConfirm) {
-                nioNotify('Erro', 'Os e-mails não coincidem!', 'error');
+                nioNotify('Atenção', 'Os e-mails informados não coincidem.', 'warning');
                 return;
             }
 
             if(pass !== confirm) {
-                nioNotify('Erro', 'As senhas não coincidem!', 'error');
+                nioNotify('Atenção', 'As senhas informadas não coincidem.', 'warning');
                 return;
             }
 
             if(pass.length < 6) {
-                nioNotify('Erro', 'A senha deve ter no mínimo 6 caracteres!', 'error');
+                nioNotify('Segurança', 'A senha deve conter no mínimo 6 caracteres.', 'info');
                 return;
             }
 
             const btn = document.getElementById('btnSubmit');
             btn.disabled = true;
-            btn.innerText = "VALIDANDO CONVITE...";
+            btn.innerText = "Sincronizando Rede...";
 
             try {
-                let finalSponsorId = "direto";
+                // Configuração inicial da rede (Famílias)
+                let nivel1 = "direto";
+                let nivel2 = "direto";
+                let nivel3 = "direto";
 
-                // --- LÓGICA DE IDENTIFICAÇÃO DO PADRINHO PELO CÓDIGO CURTO ---
+                // --- LÓGICA DE HERANÇA DE REDE (3 GERAÇÕES) ---
                 if (shortCode && shortCode !== "direto") {
                     const usersRef = collection(db, "users");
                     const querySnapshot = await getDocs(query(usersRef));
                     
+                    let sponsorData = null;
+                    let sponsorFullId = null;
+
                     querySnapshot.forEach((docSnap) => {
-                        // Verifica se o ID completo do documento começa com os 8 caracteres fornecidos
                         if (docSnap.id.substring(0, 8) === shortCode) {
-                            finalSponsorId = docSnap.id; 
+                            sponsorFullId = docSnap.id;
+                            sponsorData = docSnap.data();
                         }
                     });
+
+                    if (sponsorFullId) {
+                        nivel1 = sponsorFullId; // Padrinho Direto
+                        nivel2 = sponsorData.indicadoPor || "direto"; // Padrinho do Padrinho
+                        nivel3 = sponsorData.nivel2 || "direto"; // Padrinho do Nível 2
+                    }
                 }
 
-                btn.innerText = "CRIANDO CONTA...";
+                btn.innerText = "Finalizando Registro...";
 
                 const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
                 const user = userCredential.user;
 
+                // Gravando os dados com o mapeamento das 3 famílias
                 await setDoc(doc(db, "users", user.uid), {
                     nome: name,
                     email: email,
                     userId: user.uid,
                     uid: user.uid,
-                    indicadoPor: finalSponsorId, // Salva o UID REAL (longo) para manter a rede conectada
+                    // Mapeamento de Rede
+                    indicadoPor: nivel1, // Geração 1
+                    nivel2: nivel2,      // Geração 2
+                    nivel3: nivel3,      // Geração 3
+                    
                     saldo: 0,
                     saldoLucro: 0,
                     totalInvestido: 0,
@@ -308,19 +341,18 @@
                     status: "ativo"
                 });
 
-                nioNotify('Sucesso!', 'Sua jornada NIO começou.', 'success').then(() => {
+                nioNotify('Bem-vindo', 'Sua conta NIO foi criada com sucesso.', 'success').then(() => {
                     window.location.href = "home.html";
                 });
 
             } catch (error) {
                 console.error(error);
-                let msg = "Erro ao criar conta. Verifique os dados.";
-                if(error.code === 'auth/email-already-in-use') msg = "Este e-mail já está registrado!";
-                if(error.code === 'auth/invalid-email') msg = "O formato do e-mail é inválido!";
+                let msg = "Não foi possível completar o registro.";
+                if(error.code === 'auth/email-already-in-use') msg = "Este e-mail já está em uso.";
                 
                 nioNotify('Falha', msg, 'error');
                 btn.disabled = false;
-                btn.innerText = "CRIAR CONTA";
+                btn.innerText = "Criar Conta";
             }
         });
     </script>
