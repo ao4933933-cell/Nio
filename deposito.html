@@ -296,12 +296,12 @@
         
         <div id="depositForm">
             <div class="balance-preview">
-                <span>Disponível para Aporte</span>
+                <span>Saldo de Depósito Atual</span>
                 <h2 id="displayCurrentBalance">R$ 0,00</h2>
             </div>
 
             <div class="amount-input-group">
-                <label>Quanto deseja depositar?</label>
+                <label>Quanto deseja aportar na conta?</label>
                 <div class="input-wrapper">
                     <span>R$</span>
                     <input type="number" id="depositAmount" placeholder="0,00" min="30">
@@ -322,16 +322,16 @@
 
             <div class="info-box">
                 <i class="fa-solid fa-bolt-lightning"></i>
-                <p>Os depósitos via PIX são processados instantaneamente. O saldo ficará disponível na sua conta NIO assim que a compensação for confirmada.</p>
+                <p>O saldo de depósito é exclusivo para aquisição de ativos. Rendimentos de lucro são contabilizados em uma carteira separada para garantir sua transparência financeira.</p>
             </div>
 
             <button class="btn-deposit" id="btnSubmitDeposit" onclick="handleDeposit()">
-                Gerar PIX de Pagamento
+                Gerar PIX de Depósito
             </button>
         </div>
 
         <div id="pixContainer">
-            <h3 style="margin-bottom: 20px; font-weight: 800; color: var(--active-green);">PIX GERADO</h3>
+            <h3 style="margin-bottom: 20px; font-weight: 800; color: var(--active-green);">PIX DE DEPÓSITO GERADO</h3>
             
             <div class="qr-wrapper">
                 <div id="qrcode"></div> 
@@ -347,7 +347,7 @@
             </button>
 
             <p style="font-size: 11px; margin-top: 25px; color: rgba(255,255,255,0.5); line-height: 1.4;">
-                Após o pagamento, seu saldo será atualizado automaticamente em instantes.
+                Este pagamento será creditado diretamente no seu <b>Saldo de Depósito</b>.
             </p>
         </div>
 
@@ -382,6 +382,7 @@
                 onSnapshot(doc(db, "users", user.uid), (docSnap) => {
                     if (docSnap.exists()) {
                         userData = docSnap.data();
+                        // Garante a leitura do campo de saldo de depósito (padrão 'saldo')
                         const saldo = userData.saldo || 0;
                         document.getElementById('displayCurrentBalance').innerText = `R$ ${saldo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
                     }
@@ -397,7 +398,6 @@
             if(event) event.target.classList.add('selected');
         }
 
-        // Função Global para Copiar com Visual NIO Minimalista
         window.copyPixCode = function() {
             const codeText = document.getElementById('pixStringText').innerText;
             navigator.clipboard.writeText(codeText).then(() => {
@@ -445,7 +445,8 @@
                         userId: userUID,
                         amount: amount,
                         userName: userData?.nome || "Usuário NIO",
-                        userEmail: auth.currentUser.email
+                        userEmail: auth.currentUser.email,
+                        walletType: "saldo" // Especifica para o servidor que o crédito deve ir para 'saldo' (depósito)
                     })
                 });
 
@@ -453,14 +454,11 @@
                 const brCode = data.pix_code || data.qrcode;
 
                 if (data.success && brCode) {
-                    // Ocultar Formulário e mostrar Área de Pagamento sem pop-up
                     document.getElementById('depositForm').style.display = 'none';
                     document.getElementById('pixContainer').style.display = 'block';
 
-                    // Inserir a string do PIX
                     document.getElementById('pixStringText').innerText = brCode;
 
-                    // Limpar QR Code anterior se existir e gerar novo
                     document.getElementById("qrcode").innerHTML = "";
                     new QRCode(document.getElementById("qrcode"), {
                         text: brCode,
@@ -480,12 +478,12 @@
                 Swal.fire({
                     icon: 'error',
                     title: 'Falha na Conexão',
-                    text: 'Não foi possível gerar o PIX agora.',
+                    text: 'Não foi possível gerar o PIX de depósito agora.',
                     background: '#010409',
                     color: '#fff'
                 });
                 btn.disabled = false;
-                btn.innerText = "Gerar PIX de Pagamento";
+                btn.innerText = "Gerar PIX de Depósito";
             }
         }
     </script>
