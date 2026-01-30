@@ -267,7 +267,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, query, where, onSnapshot, getDocs, doc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
@@ -283,15 +283,9 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        // Map de imagens baseado no ID do plano definido na Home
         const imagensPlanos = {
-            1: "Plano1.jpg",
-            2: "plano2.jpg",
-            3: "plano3.jpg",
-            4: "plano4.jpg",
-            5: "plano5.jpg",
-            6: "plano6.jpg",
-            7: "plano7.jpg"
+            1: "Plano1.jpg", 2: "plano2.jpg", 3: "plano3.jpg", 
+            4: "plano4.jpg", 5: "plano5.jpg", 6: "plano6.jpg", 7: "plano7.jpg"
         };
 
         const assetsList = document.getElementById('realAssetsList');
@@ -299,8 +293,59 @@
         const emptyState = document.getElementById('emptyState');
         const totalDisplay = document.getElementById('totalYieldDisplay');
 
+        // MOTOR DE PROCESSAMENTO DE LUCROS (24 HORAS)
+        async function processarRendimentos(uid) {
+            const agora = Date.now();
+            const vinteQuatroHoras = 24 * 60 * 60 * 1000;
+            const q = query(collection(db, "ativos"), where("userId", "==", uid), where("status", "==", "ativo"));
+            const querySnapshot = await getDocs(q);
+
+            querySnapshot.forEach(async (docSnap) => {
+                const dados = docSnap.data();
+                const tempoPassado = agora - dados.ultimoPagamento;
+
+                if (tempoPassado >= vinteQuatroHoras && dados.cicloRestante > 0) {
+                    const diasParaPagar = Math.floor(tempoPassado / vinteQuatroHoras);
+                    const lucroPagar = dados.lucroDiario * diasParaPagar;
+
+                    try {
+                        // 1. Atualiza SALDO LUCRO do Usuário (Alterado de 'saldo' para 'saldoLucro')
+                        await updateDoc(doc(db, "users", uid), {
+                            saldoLucro: increment(lucroPagar)
+                        });
+
+                        // 2. Atualiza o Ativo
+                        await updateDoc(docSnap.ref, {
+                            ultimoPagamento: dados.ultimoPagamento + (diasParaPagar * vinteQuatroHoras),
+                            lucroTotalAcumulado: increment(lucroPagar),
+                            cicloRestante: increment(-diasParaPagar)
+                        });
+
+                        // SweetAlert Minimalista (Toast)
+                        const Toast = Swal.mixin({
+                            toast: true,
+                            position: 'top-end',
+                            showConfirmButton: false,
+                            timer: 3000,
+                            timerProgressBar: true,
+                            background: '#0a1a2f',
+                            color: '#fff'
+                        });
+                        Toast.fire({
+                            icon: 'success',
+                            title: `Rendimento de R$ ${lucroPagar.toFixed(2)} creditado!`
+                        });
+
+                    } catch (e) { console.error("Erro no processamento:", e); }
+                } else if (dados.cicloRestante <= 0) {
+                    await updateDoc(docSnap.ref, { status: "finalizado" });
+                }
+            });
+        }
+
         onAuthStateChanged(auth, (user) => {
             if (user) {
+                processarRendimentos(user.uid);
                 renderUserAssets(user.uid);
             } else {
                 window.location.href = "index.html";
@@ -308,7 +353,6 @@
         });
 
         function renderUserAssets(uid) {
-            // Busca na coleção 'ativos' criada no ato da compra
             const q = query(collection(db, "ativos"), where("userId", "==", uid));
 
             onSnapshot(q, (snapshot) => {
@@ -327,15 +371,12 @@
                 snapshot.forEach((docSnap) => {
                     const data = docSnap.data();
                     const id = docSnap.id;
-                    
                     totalGeral += parseFloat(data.lucroTotalAcumulado || 0);
                     
-                    // Cálculo de progresso (Inicia em 15 dias)
                     const cicloMax = 15;
                     const diasRestantes = data.cicloRestante || 0;
                     const diasPassados = cicloMax - diasRestantes;
                     const porcentagem = (diasPassados / cicloMax) * 100;
-                    
                     const imagem = imagensPlanos[data.planoId] || "Plano1.jpg";
 
                     const card = `
@@ -345,7 +386,7 @@
                                 <div class="plan-name-box">
                                     <p style="font-size: 8px; color: var(--nio-blue); margin-bottom:2px; letter-spacing:1px;">ID: ${id.slice(0,8).toUpperCase()}</p>
                                     <h3>${data.nome}</h3>
-                                    <span class="plan-tag"><i class="fa-solid fa-bolt" style="margin-right:4px;"></i> Operando</span>
+                                    <span class="plan-tag"><i class="fa-solid fa-bolt" style="margin-right:4px;"></i> ${data.status.toUpperCase()}</span>
                                 </div>
                             </div>
                             
@@ -373,7 +414,6 @@
                     `;
                     assetsList.insertAdjacentHTML('beforeend', card);
                 });
-
                 totalDisplay.innerText = `R$ ${totalGeral.toFixed(2)}`;
             });
         }
