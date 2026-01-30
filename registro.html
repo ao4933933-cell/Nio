@@ -218,7 +218,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, query, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, query, getDocs, serverTimestamp, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
           apiKey: "AIzaSyDyahOcB_wXbU_E0IzEXHBMsyw8uqJR2Es",
@@ -249,6 +249,7 @@
             });
         };
 
+        // Capturar código de convite via URL (se existir)
         const urlParams = new URLSearchParams(window.location.search);
         const refCode = urlParams.get('ref');
         if (refCode) {
@@ -266,8 +267,9 @@
             const emailConfirm = document.getElementById('confirmEmail').value;
             const pass = document.getElementById('regPass').value;
             const confirm = document.getElementById('confirmPass').value;
-            const shortCode = document.getElementById('inviteCode').value;
+            const shortCode = document.getElementById('inviteCode').value.trim();
 
+            // Validações Básicas
             if(email !== emailConfirm) {
                 nioNotify('Atenção', 'Os e-mails informados não coincidem.', 'warning');
                 return;
@@ -288,54 +290,73 @@
             btn.innerText = "Sincronizando Rede...";
 
             try {
-                // Configuração inicial da rede (Famílias)
+                // Configuração inicial da rede (Herança)
                 let nivel1 = "direto";
                 let nivel2 = "direto";
                 let nivel3 = "direto";
 
-                // --- LÓGICA DE HERANÇA DE REDE (3 GERAÇÕES) ---
-                if (shortCode && shortCode !== "direto") {
+                // --- MOTOR DE BUSCA E HERANÇA DE GENEALOGIA ---
+                if (shortCode && shortCode !== "" && shortCode !== "direto") {
                     const usersRef = collection(db, "users");
-                    const querySnapshot = await getDocs(query(usersRef));
+                    // Buscamos quem é o dono desse código de 8 dígitos
+                    const q = query(usersRef);
+                    const querySnapshot = await getDocs(q);
                     
                     let sponsorData = null;
                     let sponsorFullId = null;
 
                     querySnapshot.forEach((docSnap) => {
-                        if (docSnap.id.substring(0, 8) === shortCode) {
+                        // Compara os primeiros 8 caracteres do ID do documento com o código digitado
+                        if (docSnap.id.substring(0, 8).toLowerCase() === shortCode.toLowerCase()) {
                             sponsorFullId = docSnap.id;
                             sponsorData = docSnap.data();
                         }
                     });
 
-                    if (sponsorFullId) {
-                        nivel1 = sponsorFullId; // Padrinho Direto
-                        nivel2 = sponsorData.indicadoPor || "direto"; // Padrinho do Padrinho
-                        nivel3 = sponsorData.nivel2 || "direto"; // Padrinho do Nível 2
+                    if (sponsorFullId && sponsorData) {
+                        // SEU PAI: É o dono do código que você usou
+                        nivel1 = sponsorFullId; 
+                        
+                        // SEU AVÔ: É quem indicou o seu pai
+                        nivel2 = sponsorData.indicadoPor || "direto";
+                        
+                        // SEU BISAVÔ: É quem indicou o seu avô (está no campo nivel2 do seu pai)
+                        nivel3 = sponsorData.nivel2 || "direto";
+                        
+                        console.log("Rede Identificada - N1:", nivel1, "N2:", nivel2, "N3:", nivel3);
+                    } else {
+                        // Se o código for inválido, avisamos mas permitimos o cadastro como direto se preferir
+                        // Ou podemos bloquear. Aqui, vamos apenas registrar como direto por segurança.
+                        console.warn("Código de convite não localizado. Registrando como direto.");
                     }
                 }
 
                 btn.innerText = "Finalizando Registro...";
 
+                // Criar usuário no Firebase Auth
                 const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
                 const user = userCredential.user;
 
-                // Gravando os dados com o mapeamento das 3 famílias
+                // Gravando o documento final com a árvore de 3 níveis montada
                 await setDoc(doc(db, "users", user.uid), {
                     nome: name,
                     email: email,
                     userId: user.uid,
                     uid: user.uid,
-                    // Mapeamento de Rede
-                    indicadoPor: nivel1, // Geração 1
-                    nivel2: nivel2,      // Geração 2
-                    nivel3: nivel3,      // Geração 3
                     
-                    saldo: 0,
-                    saldoLucro: 0,
+                    // --- MAPEAMENTO DE GENEALOGIA (O SEGREDO DA COMISSÃO) ---
+                    indicadoPor: nivel1, // Pai (Nível 1)
+                    nivel2: nivel2,      // Avô (Nível 2)
+                    nivel3: nivel3,      // Bisavô (Nível 3)
+                    
+                    // Financeiro
+                    saldo: 0,            // Saldo de Depósito
+                    saldoLucro: 0,       // Saldo de Lucros e Comissões
                     totalInvestido: 0,
                     totalComissaoRede: 0,
                     totalGanhos: 0,
+                    
+                    // Status e Datas
                     dataRegistro: serverTimestamp(),
                     isVip: false,
                     status: "ativo"
@@ -349,6 +370,8 @@
                 console.error(error);
                 let msg = "Não foi possível completar o registro.";
                 if(error.code === 'auth/email-already-in-use') msg = "Este e-mail já está em uso.";
+                if(error.code === 'auth/invalid-email') msg = "E-mail inválido.";
+                if(error.code === 'auth/weak-password') msg = "A senha é muito fraca.";
                 
                 nioNotify('Falha', msg, 'error');
                 btn.disabled = false;
