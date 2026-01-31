@@ -383,6 +383,7 @@
 
         let userUID = null;
         let userData = null;
+        // MANTENHA A URL DO PIPEDREAM ATUALIZADA AQUI
         const PIPEDREAM_URL = "https://eowvv8axcvq3r4a.m.pipedream.net";
 
         onAuthStateChanged(auth, (user) => {
@@ -407,7 +408,8 @@
         };
 
         window.handleDeposit = async () => {
-            const amount = parseFloat(document.getElementById('depositAmount').value);
+            const amountInput = document.getElementById('depositAmount');
+            const amount = parseFloat(amountInput.value);
             const btn = document.getElementById('btnSubmit');
 
             if (isNaN(amount) || amount < 30) {
@@ -421,10 +423,19 @@
                 const res = await fetch(PIPEDREAM_URL, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ userId: userUID, amount: amount, userName: userData?.nome || "Cliente" })
+                    body: JSON.stringify({ 
+                        userId: userUID, 
+                        amount: amount, 
+                        userName: userData?.nome || "Cliente NIO" 
+                    })
                 });
 
+                if (!res.ok) throw new Error("Erro na rede");
+
                 const data = await res.json();
+                console.log("Resposta Pipedream:", data);
+
+                // Busca o código PIX em todas as chaves possíveis que definimos no Pipedream
                 const brCode = data.pix_code || data.qrcode || (data.body && data.body.pix_code);
 
                 if (brCode) {
@@ -434,10 +445,26 @@
                     
                     const qrDiv = document.getElementById("qrcode");
                     qrDiv.innerHTML = "";
-                    new QRCode(qrDiv, { text: brCode, width: 200, height: 200 });
-                } else { throw new Error(); }
+                    
+                    // Gera o QR Code visual
+                    new QRCode(qrDiv, { 
+                        text: brCode, 
+                        width: 200, 
+                        height: 200,
+                        correctLevel : QRCode.CorrectLevel.M
+                    });
+                } else { 
+                    console.error("Payload recebido sem código PIX:", data);
+                    throw new Error("Resposta inválida do servidor"); 
+                }
             } catch (e) {
-                Swal.fire("Erro", "Falha ao gerar Pix. Tente novamente.", "error");
+                console.error("Erro completo:", e);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Falha na Conexão',
+                    text: 'Não foi possível gerar o QR Code. Verifique se o valor é válido e tente novamente.',
+                    confirmButtonColor: '#00a3e0'
+                });
                 btn.disabled = false;
                 btn.innerText = "Gerar Pagamento";
             }
