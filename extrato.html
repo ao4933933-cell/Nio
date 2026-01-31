@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NIO Premium - Extrato de Luxo</title>
+    <title>NIO Premium - Extrato</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
@@ -35,9 +35,9 @@
                 radial-gradient(circle at 0% 0%, rgba(0, 229, 255, 0.05) 0%, transparent 40%),
                 radial-gradient(circle at 100% 100%, rgba(0, 119, 255, 0.05) 0%, transparent 40%);
             padding-bottom: 50px;
+            overflow-x: hidden;
         }
 
-        /* HEADER PREMIUM */
         .premium-nav {
             padding: 25px;
             display: flex;
@@ -60,8 +60,6 @@
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .btn-back-lux:active { transform: scale(0.9); background: rgba(255,255,255,0.1); }
-
         .header-section {
             padding: 0 25px 30px;
             text-align: left;
@@ -82,7 +80,6 @@
             margin-top: 4px;
         }
 
-        /* FILTROS DESIGN CHIP */
         .filter-wrapper {
             display: flex;
             overflow-x: auto;
@@ -109,10 +106,8 @@
             background: white;
             color: var(--dark-bg);
             border-color: white;
-            box-shadow: 0 10px 20px rgba(255,255,255,0.1);
         }
 
-        /* TIMELINE */
         .timeline { padding: 0 20px; }
 
         .date-label {
@@ -128,7 +123,6 @@
         }
         .date-label::after { content: ""; height: 1px; flex: 1; background: linear-gradient(90deg, var(--glass-border), transparent); }
 
-        /* CARD DE TRANSAÇÃO PREMIUM */
         .lux-card {
             background: var(--glass);
             border: 1px solid var(--glass-border);
@@ -158,7 +152,6 @@
             justify-content: center;
             font-size: 20px;
             position: relative;
-            overflow: hidden;
         }
 
         .lux-icon-box::before {
@@ -167,6 +160,7 @@
             inset: 0;
             opacity: 0.15;
             background: currentColor;
+            border-radius: 18px;
         }
 
         .lux-info h4 {
@@ -201,28 +195,17 @@
             text-transform: uppercase;
         }
 
-        /* ESTADOS VAZIOS */
         .empty-premium {
             text-align: center;
             padding: 80px 40px;
         }
-        .empty-premium i {
-            font-size: 50px;
-            background: var(--accent-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 20px;
-            opacity: 0.5;
-        }
 
-        /* CORES POR TIPO */
+        /* CORES */
         .color-income { color: var(--income) !important; }
         .color-outcome { color: var(--outcome) !important; }
-        .type-deposito { color: var(--income); }
-        .type-saque { color: var(--outcome); }
-        .type-plano { color: var(--nio-blue); }
+        .type-income { color: var(--income); }
+        .type-outcome { color: var(--outcome); }
         .type-comissao { color: var(--gold); }
-
     </style>
 </head>
 <body>
@@ -231,32 +214,31 @@
         <a href="perfil.html" class="btn-back-lux">
             <i class="fa-solid fa-arrow-left"></i>
         </a>
-        <div style="width: 45px;"></div>
     </nav>
 
     <section class="header-section">
         <h1>Meu Extrato</h1>
-        <p>Acompanhe sua evolução financeira na NIO.</p>
+        <p>Histórico completo de transações e ativos.</p>
     </section>
 
     <div class="filter-wrapper" id="filterContainer">
         <div class="chip active" data-type="all">Tudo</div>
         <div class="chip" data-type="deposito">Depósitos</div>
         <div class="chip" data-type="saque">Saques</div>
-        <div class="chip" data-type="plano">Planos</div>
-        <div class="chip" data-type="comissao">Indicações</div>
+        <div class="chip" data-type="comissao_rede">Comissões</div>
+        <div class="chip" data-type="rendimento">Rendimentos</div>
     </div>
 
     <main class="timeline" id="mainTimeline">
         <div class="empty-premium">
             <i class="fa-solid fa-compass fa-spin"></i>
-            <p style="color: #64748b;">Sincronizando com o blockchain...</p>
+            <p style="color: #64748b;">Sincronizando com a rede...</p>
         </div>
     </main>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, query, where, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, query, where, onSnapshot, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
@@ -274,146 +256,154 @@
 
         let userUID = null;
         let currentFilter = "all";
-        let listeners = [];
-        let masterData = []; // Armazena os dados para renderização rápida
+        let masterData = [];
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 userUID = user.uid;
-                initLuxMonitor();
+                startNioScanner();
             } else {
                 window.location.href = "login.html";
             }
         });
 
-        // Configuração de cliques nos filtros
+        // Configuração de Filtros
         document.querySelectorAll('.chip').forEach(chip => {
             chip.addEventListener('click', () => {
                 document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
                 chip.classList.add('active');
                 currentFilter = chip.getAttribute('data-type');
-                renderPremiumUI(); // Apenas re-renderiza o que já temos
+                renderPremiumUI();
             });
         });
 
-        function parseLuxDate(data) {
-            if (!data) return new Date();
-            if (data.toDate) return data.toDate();
-            if (typeof data === 'string') return new Date(data.replace(/ de /g, ' '));
-            return new Date(data);
+        function parseLuxDate(d) {
+            if (!d) return new Date();
+            if (d.toDate) return d.toDate();
+            if (d.seconds) return new Date(d.seconds * 1000);
+            return new Date(d);
         }
 
-        async function initLuxMonitor() {
-            // Limpa listeners antigos
-            listeners.forEach(unsub => unsub());
-            listeners = [];
-
-            const targets = ["transactions", "ativos", "historico"];
+        function startNioScanner() {
+            // Monitora a coleção principal de transações
+            // O Firebase deve ter as coleções: "transacoes" e "ativos"
+            const colecoes = ["transacoes", "ativos"];
             
-            targets.forEach(colName => {
-                const q = query(collection(db, colName), where("userId", "==", userUID));
+            colecoes.forEach(col => {
+                const q = query(collection(db, col), where("userId", "==", userUID));
                 
-                // Monitoramento em tempo real real
-                const unsub = onSnapshot(q, (snapshot) => {
-                    // Removemos dados antigos desta coleção específica para evitar duplicatas
-                    masterData = masterData.filter(item => item.originCollection !== colName);
+                onSnapshot(q, (snapshot) => {
+                    // Remove itens antigos dessa coleção para não duplicar
+                    masterData = masterData.filter(item => item.from !== col);
                     
-                    snapshot.forEach(doc => {
-                        const d = doc.data();
+                    snapshot.forEach(docSnap => {
+                        const data = docSnap.data();
                         masterData.push({
-                            ...d,
-                            docId: doc.id,
-                            originCollection: colName,
-                            dateObj: parseLuxDate(d.timestamp || d.dataCompra || d.dataRegistro)
+                            ...data,
+                            id: docSnap.id,
+                            from: col,
+                            dateObj: parseLuxDate(data.data || data.dataCompra || data.timestamp)
                         });
                     });
-                    
                     renderPremiumUI();
-                }, (error) => {
-                    console.error("Erro na leitura:", error);
                 });
-                
-                listeners.push(unsub);
             });
         }
 
         function renderPremiumUI() {
             const container = document.getElementById('mainTimeline');
-            
-            // Ordena por data (mais recente primeiro)
             let displayList = [...masterData].sort((a, b) => b.dateObj - a.dateObj);
 
-            // Filtra conforme a seleção do usuário
+            // Aplicar Filtro
             if (currentFilter !== "all") {
-                displayList = displayList.filter(t => {
-                    const type = (t.type || t.tipo || "").toLowerCase();
-                    if (currentFilter === "saque") return type.includes("saque");
-                    if (currentFilter === "plano") return type.includes("plano") || t.originCollection === "ativos";
-                    return type === currentFilter;
+                displayList = displayList.filter(item => {
+                    const tipo = (item.tipo || item.type || "").toLowerCase();
+                    return tipo.includes(currentFilter);
                 });
             }
 
             container.innerHTML = "";
 
             if (displayList.length === 0) {
-                container.innerHTML = `<div class="empty-premium"><i class="fa-solid fa-receipt"></i><p>Nenhuma atividade encontrada.</p></div>`;
+                container.innerHTML = `<div class="empty-premium"><i class="fa-solid fa-receipt"></i><p>Nenhuma transação encontrada.</p></div>`;
                 return;
             }
 
-            let lastDateLabel = "";
+            let lastDate = "";
 
-            displayList.forEach((tx, index) => {
+            displayList.forEach((tx) => {
                 const dateStr = tx.dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
                 
-                // Adiciona rótulo de data se mudar o dia
-                if (dateStr !== lastDateLabel) {
-                    const head = document.createElement('div');
-                    head.className = 'date-label';
-                    head.innerText = dateStr;
-                    container.appendChild(head);
-                    lastDateLabel = dateStr;
+                if (dateStr !== lastDate) {
+                    const label = document.createElement('div');
+                    label.className = 'date-label';
+                    label.innerText = dateStr;
+                    container.appendChild(label);
+                    lastDate = dateStr;
                 }
 
-                // LÓGICA DE DEFINIÇÃO DE TIPO E SINAL
-                const rawType = (tx.type || tx.tipo || (tx.originCollection === "ativos" ? "plano" : "deposito")).toLowerCase();
+                // Lógica de valores e ícones
+                const tipo = (tx.tipo || tx.type || (tx.from === "ativos" ? "plano" : "operacao")).toLowerCase();
+                const valor = tx.valor || tx.amount || tx.valorInvestido || 0;
                 
-                // Definição: Saques e Ativos (Planos) são SAÍDA (Negativos)
-                const isOutcome = rawType.includes("saque") || rawType.includes("plano") || tx.originCollection === "ativos";
+                // Define se é saída (vermelho) ou entrada (verde)
+                const isOutcome = tipo.includes("saque") || tipo.includes("plano") || tx.from === "ativos";
                 
-                const valor = tx.valorOriginal || tx.amount || tx.valorInvestido || 0;
-
                 const card = document.createElement('div');
                 card.className = 'lux-card';
-                card.style.animationDelay = `${index * 0.05}s`;
-
                 card.innerHTML = `
                     <div class="lux-left">
-                        <div class="lux-icon-box type-${rawType.replace('_lucro','')}">
-                            <i class="fa-solid ${getLuxIcon(rawType)}"></i>
+                        <div class="lux-icon-box ${getIconClass(tipo)}">
+                            <i class="fa-solid ${getIcon(tipo)}"></i>
                         </div>
                         <div class="lux-info">
-                            <h4>${tx.titulo || tx.nome || tx.title || 'Operação NIO'}</h4>
-                            <p>${tx.status === 'ativo' || tx.status === 'concluido' ? 'Confirmado via Blockchain' : 'Em processamento'}</p>
+                            <h4>${formatTitulo(tx)}</h4>
+                            <p>${formatDesc(tx)}</p>
                         </div>
                     </div>
                     <div class="lux-right">
                         <div class="lux-amount ${isOutcome ? 'color-outcome' : 'color-income'}">
                             ${isOutcome ? '-' : '+'} R$ ${parseFloat(valor).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
                         </div>
-                        <div class="lux-badge">${tx.originCollection}</div>
+                        <div class="lux-badge">${tx.status || 'concluído'}</div>
                     </div>
                 `;
                 container.appendChild(card);
             });
         }
 
-        function getLuxIcon(type) {
-            if (type.includes("saque")) return "fa-arrow-up-from-bracket";
-            if (type === "deposito") return "fa-wallet";
-            if (type.includes("plano")) return "fa-gem";
-            if (type.includes("comissao")) return "fa-crown";
-            return "fa-bolt";
+        function getIcon(tipo) {
+            if (tipo.includes("deposito")) return "fa-wallet";
+            if (tipo.includes("saque")) return "fa-hand-holding-dollar";
+            if (tipo.includes("comissao")) return "fa-users";
+            if (tipo.includes("rendimento") || tipo.includes("lucro")) return "fa-chart-line";
+            if (tipo.includes("plano")) return "fa-car-side";
+            return "fa-circle-dot";
         }
+
+        function getIconClass(tipo) {
+            if (tipo.includes("deposito") || tipo.includes("rendimento")) return "type-income";
+            if (tipo.includes("saque") || tipo.includes("plano")) return "type-outcome";
+            if (tipo.includes("comissao")) return "type-comissao";
+            return "";
+        }
+
+        function formatTitulo(tx) {
+            if (tx.titulo) return tx.titulo;
+            const tipo = (tx.tipo || "").toLowerCase();
+            if (tipo.includes("deposito")) return "Depósito PIX";
+            if (tipo.includes("saque")) return "Saque Solicitado";
+            if (tipo.includes("comissao")) return "Bônus de Equipe";
+            if (tipo.includes("plano") || tx.from === "ativos") return tx.nome || "Ativação de Ativo";
+            return "Transação NIO";
+        }
+
+        function formatDesc(tx) {
+            if (tx.compradorNome) return `De: ${tx.compradorNome}`;
+            if (tx.metodo) return `Via ${tx.metodo}`;
+            return "Processado via Blockchain";
+        }
+
     </script>
 </body>
 </html>
