@@ -18,7 +18,6 @@
             --locked-red: #ff3366;
         }
 
-        /* RESET GERAL */
         * {
             margin: 0;
             padding: 0;
@@ -35,7 +34,6 @@
             background-image: radial-gradient(circle at top right, #0a1a2f 0%, transparent 40%);
         }
 
-        /* BOTÃO FLUTUANTE (POP OUT) DA ROLETA */
         .fab-roleta {
             position: fixed;
             bottom: 120px;
@@ -61,18 +59,13 @@
             animation: spin 4s infinite linear;
         }
 
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes bounce {
             0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
             40% {transform: translateY(-10px);}
             60% {transform: translateY(-5px);}
         }
 
-        /* CARROSSEL ROLETA */
         .header-slider {
             width: 92%;
             height: 220px;
@@ -86,7 +79,6 @@
         .swiper-container { width: 100%; height: 100%; }
         .swiper-slide img { width: 100%; height: 100%; object-fit: cover; }
 
-        /* GRID DE AÇÕES */
         .action-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -94,11 +86,7 @@
             padding: 10px 20px 20px;
         }
 
-        .action-item {
-            text-align: center;
-            text-decoration: none;
-            color: white;
-        }
+        .action-item { text-align: center; text-decoration: none; color: white; }
 
         .icon-box {
             width: 60px;
@@ -114,20 +102,9 @@
             color: var(--nio-blue);
         }
 
-        .action-item span {
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            opacity: 0.8;
-        }
+        .action-item span { font-size: 10px; font-weight: 700; text-transform: uppercase; opacity: 0.8; }
 
-        /* CATEGORIAS */
-        .tabs-container {
-            display: flex;
-            padding: 0 20px;
-            gap: 10px;
-            margin-bottom: 25px;
-        }
+        .tabs-container { display: flex; padding: 0 20px; gap: 10px; margin-bottom: 25px; }
 
         .tab-btn {
             flex: 1;
@@ -143,13 +120,8 @@
             transition: 0.3s;
         }
 
-        .tab-btn.active {
-            background: var(--nio-blue);
-            color: white;
-            box-shadow: 0 5px 15px rgba(0, 163, 224, 0.3);
-        }
+        .tab-btn.active { background: var(--nio-blue); color: white; box-shadow: 0 5px 15px rgba(0, 163, 224, 0.3); }
 
-        /* LISTAGEM DE PLANOS */
         .plans-list { padding: 0 20px; }
 
         .plan-card {
@@ -162,22 +134,10 @@
             position: relative;
         }
 
-        .plan-card.locked {
-            opacity: 0.7;
-            filter: grayscale(0.5);
-        }
+        .plan-card.locked { opacity: 0.7; filter: grayscale(0.5); }
 
-        .plan-img-container {
-            width: 100%;
-            height: 200px;
-            position: relative;
-        }
-
-        .plan-img-container img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
+        .plan-img-container { width: 100%; height: 200px; position: relative; }
+        .plan-img-container img { width: 100%; height: 100%; object-fit: cover; }
 
         .plan-badge {
             position: absolute;
@@ -197,13 +157,7 @@
 
         .plan-info { padding: 20px; }
 
-        .plan-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
+        .plan-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .plan-title { font-size: 1.1rem; font-weight: 300; letter-spacing: 0.5px; }
         .plan-price { font-size: 1.4rem; color: var(--nio-blue); font-weight: 800; }
 
@@ -237,15 +191,9 @@
             transition: 0.3s;
         }
 
-        .btn-buy:disabled {
-            background: #444;
-            box-shadow: none;
-            cursor: not-allowed;
-        }
-
+        .btn-buy:disabled { background: #444; box-shadow: none; cursor: not-allowed; }
         .btn-buy:active:not(:disabled) { transform: scale(0.95); }
 
-        /* MENU INFERIOR */
         .bottom-nav {
             position: fixed;
             bottom: 0;
@@ -304,7 +252,7 @@
     <script src="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, doc, getDoc, updateDoc, collection, addDoc, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, updateDoc, collection, addDoc, serverTimestamp, increment, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
@@ -340,6 +288,7 @@
 
         function renderPlanos() {
             const container = document.getElementById('render-plans');
+            if (!container) return;
             container.innerHTML = '';
             const listaParaRenderizar = (abaAtual === 'estabilizar') ? planosEstabilizar : planosAvancados;
 
@@ -375,154 +324,178 @@
             });
         }
 
-        // --- DISTRIBUIÇÃO DE COMISSÃO E GIROS (APENAS NA PRIMEIRA COMPRA) ---
-        async function processarBonusRede(userData, valorPlano, compradorUid) {
-            // Se o usuário já fez alguma compra antes, encerra a função sem distribuir nada
-            if (userData.hasMadeFirstPurchase === true) {
-                console.log("Compra recorrente detectada. Comissões e giros ignorados.");
-                return;
-            }
+        async function processarBonusRede(userData, valorPlano) {
+            if (userData.hasMadeFirstPurchase === true) return;
 
-            const hierarquia = [
-                { id: userData.indicadoPor, porcentagem: 0.15, nivel: 1 },
-                { id: userData.nivel2, porcentagem: 0.03, nivel: 2 },
-                { id: userData.nivel3, porcentagem: 0.01, nivel: 3 }
+            // Mapeamento da hierarquia vindo dos dados do usuário
+            const rede = [
+                { uid: userData.indicadoPor, porc: 0.15, nivel: 1 },
+                { uid: userData.nivel2, porc: 0.03, nivel: 2 },
+                { uid: userData.nivel3, porc: 0.01, nivel: 3 }
             ];
 
-            for (const el of hierarquia) {
-                if (el.id && el.id !== "direto") {
+            for (const el of rede) {
+                if (el.uid && el.uid !== "direto" && el.uid !== "") {
                     try {
-                        const comissao = valorPlano * el.porcentagem;
-                        const padrinhoRef = doc(db, "users", el.id);
+                        const padrinhoRef = doc(db, "users", el.uid);
+                        const padrinhoSnap = await getDoc(padrinhoRef);
                         
-                        // Objeto de atualização básica (Comissão)
-                        const updates = {
-                            saldoLucro: increment(comissao),
-                            totalComissaoRede: increment(comissao)
-                        };
+                        if (padrinhoSnap.exists()) {
+                            const bonusMoney = Number((valorPlano * el.porc).toFixed(2));
+                            const pData = padrinhoSnap.data();
+                            
+                            // Objeto de atualização
+                            let updates = {
+                                saldoLucro: increment(bonusMoney),
+                                totalComissaoRede: increment(bonusMoney)
+                            };
 
-                        // LOGICA: Somente o Nível 1 ganha 1 giro na roleta se for a primeira compra
-                        if (el.nivel === 1) {
-                            updates.girosRoleta = increment(1);
+                            // CORREÇÃO DOS GIROS: Se o campo não existir, o increment pode falhar em alguns SDKs
+                            // Aqui garantimos que se for Nivel 1, tentamos incrementar. 
+                            // O increment(1) no Firestore cria o campo se ele não existir, 
+                            // DESDE QUE o documento exista (o que já validamos).
+                            if (el.nivel === 1) {
+                                updates.girosRoleta = increment(1);
+                            }
+
+                            await updateDoc(padrinhoRef, updates);
+
+                            await addDoc(collection(db, "transacoes"), {
+                                userId: el.uid,
+                                tipo: "comissao_rede",
+                                valor: bonusMoney,
+                                nivel: el.nivel,
+                                de: userData.nome || "Novo Membro",
+                                data: serverTimestamp()
+                            });
                         }
-
-                        await updateDoc(padrinhoRef, updates);
-
-                        // Registro de transação para histórico
-                        await addDoc(collection(db, "transacoes"), {
-                            userId: el.id,
-                            tipo: "comissao_primeira_compra",
-                            valor: comissao,
-                            nivelOrigem: el.nivel,
-                            compradorNome: userData.nome || "Novo Integrante",
-                            data: serverTimestamp()
-                        });
-                        
-                    } catch (err) {
-                        console.error(`Falha ao bonificar Nível ${el.nivel}:`, err);
+                    } catch (e) {
+                        console.error("Erro ao processar bônus para " + el.uid, e);
                     }
                 }
             }
         }
 
         window.comprarPlano = async (id, preco, tipoAba) => {
-            onAuthStateChanged(auth, async (user) => {
-                if (!user) {
-                    Swal.fire("Erro", "Você precisa estar logado.", "error");
-                    return;
-                }
+            const user = auth.currentUser;
+            if (!user) {
+                Swal.fire("Acesso Negado", "Realize login para investir.", "error");
+                return;
+            }
 
+            try {
+                // Busca dados atualizados no momento do clique
                 const userRef = doc(db, "users", user.uid);
                 const userSnap = await getDoc(userRef);
+                
                 if (!userSnap.exists()) return;
-
                 const userData = userSnap.data();
-                const saldoAtual = userData.saldo || 0;
+                const saldoAtual = Number(userData.saldo || 0);
 
                 if (saldoAtual < preco) {
-                    Swal.fire("Saldo Insuficiente", "Você não possui saldo suficiente.", "warning");
+                    Swal.fire("Saldo Insuficiente", "Recarregue sua conta para prosseguir.", "warning");
                     return;
                 }
 
-                Swal.fire({
-                    title: 'Confirmar Investimento?',
-                    text: `Deseja investir R$ ${preco}?`,
-                    icon: 'question',
+                const result = await Swal.fire({
+                    title: 'Confirmar Ativação?',
+                    text: `O valor de R$ ${preco} será debitado do seu saldo.`,
+                    icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#00a3e0',
-                    confirmButtonText: 'Confirmar'
-                }).then(async (result) => {
-                    if (result.isConfirmed) {
-                        try {
-                            // 1. Processa bônus de rede ANTES de marcar como compra realizada
-                            await processarBonusRede(userData, preco, user.uid);
-
-                            // 2. Atualiza o usuário comprador
-                            await updateDoc(userRef, {
-                                saldo: increment(-preco),
-                                totalInvestido: increment(preco),
-                                isVip: true,
-                                hasMadeFirstPurchase: true // Trava para nunca mais gerar comissão ou giro
-                            });
-
-                            const listaSource = (tipoAba === 'estabilizar') ? planosEstabilizar : planosAvancados;
-                            const planoData = listaSource.find(p => p.id === id);
-                            
-                            const agora = new Date().getTime();
-
-                            await addDoc(collection(db, "ativos"), {
-                                userId: user.uid,
-                                planoId: id,
-                                nome: planoData.nome,
-                                valorInvestido: preco,
-                                lucroDiario: preco * 0.20,
-                                dataCompra: serverTimestamp(),
-                                timestampCompra: agora,
-                                ultimoPagamento: agora,
-                                cicloRestante: 15,
-                                status: "ativo"
-                            });
-
-                            Swal.fire({
-                                title: "Sucesso!",
-                                text: "Investimento ativo!",
-                                icon: "success",
-                                confirmButtonColor: "#00a3e0"
-                            }).then(() => {
-                                window.location.href = "ativos.html";
-                            });
-
-                        } catch (error) {
-                            console.error(error);
-                            Swal.fire("Erro", "Falha ao processar investimento.", "error");
-                        }
-                    }
+                    cancelButtonColor: '#333',
+                    confirmButtonText: 'ATIVAR AGORA',
+                    cancelButtonText: 'CANCELAR'
                 });
-            });
+
+                if (result.isConfirmed) {
+                    // BLOQUEIA O BOTÃO DURANTE O PROCESSO
+                    const btn = event.target;
+                    btn.disabled = true;
+                    btn.innerText = "PROCESSANDO...";
+
+                    // 1. Processar Bônus de Rede (Somente se for a primeira compra)
+                    if (!userData.hasMadeFirstPurchase) {
+                        await processarBonusRede(userData, preco);
+                    }
+
+                    // 2. Atualizar Saldo e Status do Comprador
+                    await updateDoc(userRef, {
+                        saldo: increment(-Number(preco)),
+                        totalInvestido: increment(Number(preco)),
+                        hasMadeFirstPurchase: true,
+                        isVip: true
+                    });
+
+                    // 3. Criar o Ativo
+                    const listaSource = (tipoAba === 'estabilizar') ? planosEstabilizar : planosAvancados;
+                    const infoPlano = listaSource.find(p => p.id === id);
+                    const timestampAgora = Date.now();
+
+                    await addDoc(collection(db, "ativos"), {
+                        userId: user.uid,
+                        planoId: id,
+                        nome: infoPlano.nome,
+                        valorInvestido: Number(preco),
+                        lucroDiario: Number((preco * 0.20).toFixed(2)),
+                        dataCompra: serverTimestamp(),
+                        timestampCompra: timestampAgora,
+                        ultimoPagamento: timestampAgora,
+                        cicloRestante: 15,
+                        status: "ativo",
+                        totalColhido: 0,
+                        lucroTotalAcumulado: 0
+                    });
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'NIO Ativado!',
+                        text: 'Seu veículo já está gerando rendimentos.',
+                        confirmButtonColor: '#00a3e0'
+                    }).then(() => {
+                        window.location.href = "ativos.html";
+                    });
+                }
+            } catch (err) {
+                console.error(err);
+                Swal.fire("Erro Operacional", "Não foi possível concluir a compra. Tente novamente.", "error");
+            }
         };
 
-        // UI TABS
-        document.getElementById('tab-estabilizar').addEventListener('click', () => {
-            abaAtual = 'estabilizar';
-            document.getElementById('tab-estabilizar').classList.add('active');
-            document.getElementById('tab-avancado').classList.remove('active');
-            renderPlanos();
-        });
+        // EVENTOS DE NAVEGAÇÃO
+        const btnEst = document.getElementById('tab-estabilizar');
+        const btnAva = document.getElementById('tab-avancado');
 
-        document.getElementById('tab-avancado').addEventListener('click', () => {
-            abaAtual = 'avancado';
-            document.getElementById('tab-avancado').classList.add('active');
-            document.getElementById('tab-estabilizar').classList.remove('active');
-            renderPlanos();
-        });
+        if(btnEst) {
+            btnEst.addEventListener('click', () => {
+                abaAtual = 'estabilizar';
+                btnEst.classList.add('active');
+                if(btnAva) btnAva.classList.remove('active');
+                renderPlanos();
+            });
+        }
 
-        const swiper = new Swiper('.swiper-container', {
+        if(btnAva) {
+            btnAva.addEventListener('click', () => {
+                abaAtual = 'avancado';
+                btnAva.classList.add('active');
+                if(btnEst) btnEst.classList.remove('active');
+                renderPlanos();
+            });
+        }
+
+        // SWIPER INIT
+        new Swiper('.swiper-container', {
             loop: true,
             autoplay: { delay: 4000, disableOnInteraction: false },
-            speed: 1000
+            speed: 800
         });
 
-        renderPlanos();
+        // INICIALIZAÇÃO
+        onAuthStateChanged(auth, (user) => {
+            renderPlanos();
+        });
+
     </script>
 </body>
 </html>
