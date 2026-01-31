@@ -35,6 +35,43 @@
             background-image: radial-gradient(circle at top right, #0a1a2f 0%, transparent 40%);
         }
 
+        /* BOTÃO FLUTUANTE (POP OUT) DA ROLETA */
+        .fab-roleta {
+            position: fixed;
+            bottom: 120px;
+            right: 20px;
+            width: 65px;
+            height: 65px;
+            background: var(--nio-gradient);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px rgba(0, 163, 224, 0.6);
+            z-index: 9999;
+            cursor: pointer;
+            border: 2px solid rgba(255,255,255,0.2);
+            animation: bounce 2s infinite;
+            text-decoration: none;
+        }
+
+        .fab-roleta i {
+            font-size: 30px;
+            color: white;
+            animation: spin 4s infinite linear;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
+            40% {transform: translateY(-10px);}
+            60% {transform: translateY(-5px);}
+        }
+
         /* CARROSSEL ROLETA */
         .header-slider {
             width: 92%;
@@ -125,7 +162,6 @@
             position: relative;
         }
 
-        /* ESTILO PARA PLANO BLOQUEADO */
         .plan-card.locked {
             opacity: 0.7;
             filter: grayscale(0.5);
@@ -230,6 +266,10 @@
 </head>
 <body>
 
+    <a href="roleta.html" class="fab-roleta">
+        <i class="fa-solid fa-dharmachakra"></i>
+    </a>
+
     <section class="header-slider">
         <div class="swiper swiper-container">
             <div class="swiper-wrapper">
@@ -243,7 +283,7 @@
     <div class="action-grid">
         <a href="deposito.html" class="action-item"><div class="icon-box"><i class="fa-solid fa-bolt-lightning"></i></div><span>Recarga</span></a>
         <a href="saque.html" class="action-item"><div class="icon-box"><i class="fa-solid fa-receipt"></i></div><span>Retirada</span></a>
-        <a href="https://chat.whatsapp.com/CRCkrm77rKG426p1toJ7Gi?mode=gi_t" class="action-item" target="_blank"><div class="icon-box"><i class="fa-solid fa-network-wired"></i></div><span>Grupo</span></a>
+        <a href="https://chat.whatsapp.com/E9hfrn1TdEhJvOFVZZzNoR" class="action-item" target="_blank"><div class="icon-box"><i class="fa-solid fa-network-wired"></i></div><span>Grupo</span></a>
         <a href="http://wa.me/5521965141548" class="action-item" target="_blank"><div class="icon-box"><i class="fa-solid fa-headset"></i></div><span>Suporte</span></a>
     </div>
 
@@ -280,7 +320,6 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        // CONFIGURAÇÃO DOS PLANOS
         const planosEstabilizar = [
             { id: 1, nome: "NIO Start Green", valor: 30, img: "Plano1.jpg", badge: "Popular", status: "disponivel" },
             { id: 2, nome: "NIO Power Eco", valor: 50, img: "plano2.jpg", badge: "Premium", status: "disponivel" },
@@ -302,7 +341,6 @@
         function renderPlanos() {
             const container = document.getElementById('render-plans');
             container.innerHTML = '';
-            
             const listaParaRenderizar = (abaAtual === 'estabilizar') ? planosEstabilizar : planosAvancados;
 
             listaParaRenderizar.forEach(plano => {
@@ -337,7 +375,133 @@
             });
         }
 
-        // --- CONTROLE DE TABS ---
+        // --- DISTRIBUIÇÃO DE COMISSÃO E GIROS (APENAS NA PRIMEIRA COMPRA) ---
+        async function processarBonusRede(userData, valorPlano, compradorUid) {
+            // Se o usuário já fez alguma compra antes, encerra a função sem distribuir nada
+            if (userData.hasMadeFirstPurchase === true) {
+                console.log("Compra recorrente detectada. Comissões e giros ignorados.");
+                return;
+            }
+
+            const hierarquia = [
+                { id: userData.indicadoPor, porcentagem: 0.15, nivel: 1 },
+                { id: userData.nivel2, porcentagem: 0.03, nivel: 2 },
+                { id: userData.nivel3, porcentagem: 0.01, nivel: 3 }
+            ];
+
+            for (const el of hierarquia) {
+                if (el.id && el.id !== "direto") {
+                    try {
+                        const comissao = valorPlano * el.porcentagem;
+                        const padrinhoRef = doc(db, "users", el.id);
+                        
+                        // Objeto de atualização básica (Comissão)
+                        const updates = {
+                            saldoLucro: increment(comissao),
+                            totalComissaoRede: increment(comissao)
+                        };
+
+                        // LOGICA: Somente o Nível 1 ganha 1 giro na roleta se for a primeira compra
+                        if (el.nivel === 1) {
+                            updates.girosRoleta = increment(1);
+                        }
+
+                        await updateDoc(padrinhoRef, updates);
+
+                        // Registro de transação para histórico
+                        await addDoc(collection(db, "transacoes"), {
+                            userId: el.id,
+                            tipo: "comissao_primeira_compra",
+                            valor: comissao,
+                            nivelOrigem: el.nivel,
+                            compradorNome: userData.nome || "Novo Integrante",
+                            data: serverTimestamp()
+                        });
+                        
+                    } catch (err) {
+                        console.error(`Falha ao bonificar Nível ${el.nivel}:`, err);
+                    }
+                }
+            }
+        }
+
+        window.comprarPlano = async (id, preco, tipoAba) => {
+            onAuthStateChanged(auth, async (user) => {
+                if (!user) {
+                    Swal.fire("Erro", "Você precisa estar logado.", "error");
+                    return;
+                }
+
+                const userRef = doc(db, "users", user.uid);
+                const userSnap = await getDoc(userRef);
+                if (!userSnap.exists()) return;
+
+                const userData = userSnap.data();
+                const saldoAtual = userData.saldo || 0;
+
+                if (saldoAtual < preco) {
+                    Swal.fire("Saldo Insuficiente", "Você não possui saldo suficiente.", "warning");
+                    return;
+                }
+
+                Swal.fire({
+                    title: 'Confirmar Investimento?',
+                    text: `Deseja investir R$ ${preco}?`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#00a3e0',
+                    confirmButtonText: 'Confirmar'
+                }).then(async (result) => {
+                    if (result.isConfirmed) {
+                        try {
+                            // 1. Processa bônus de rede ANTES de marcar como compra realizada
+                            await processarBonusRede(userData, preco, user.uid);
+
+                            // 2. Atualiza o usuário comprador
+                            await updateDoc(userRef, {
+                                saldo: increment(-preco),
+                                totalInvestido: increment(preco),
+                                isVip: true,
+                                hasMadeFirstPurchase: true // Trava para nunca mais gerar comissão ou giro
+                            });
+
+                            const listaSource = (tipoAba === 'estabilizar') ? planosEstabilizar : planosAvancados;
+                            const planoData = listaSource.find(p => p.id === id);
+                            
+                            const agora = new Date().getTime();
+
+                            await addDoc(collection(db, "ativos"), {
+                                userId: user.uid,
+                                planoId: id,
+                                nome: planoData.nome,
+                                valorInvestido: preco,
+                                lucroDiario: preco * 0.20,
+                                dataCompra: serverTimestamp(),
+                                timestampCompra: agora,
+                                ultimoPagamento: agora,
+                                cicloRestante: 15,
+                                status: "ativo"
+                            });
+
+                            Swal.fire({
+                                title: "Sucesso!",
+                                text: "Investimento ativo!",
+                                icon: "success",
+                                confirmButtonColor: "#00a3e0"
+                            }).then(() => {
+                                window.location.href = "ativos.html";
+                            });
+
+                        } catch (error) {
+                            console.error(error);
+                            Swal.fire("Erro", "Falha ao processar investimento.", "error");
+                        }
+                    }
+                });
+            });
+        };
+
+        // UI TABS
         document.getElementById('tab-estabilizar').addEventListener('click', () => {
             abaAtual = 'estabilizar';
             document.getElementById('tab-estabilizar').classList.add('active');
@@ -351,125 +515,6 @@
             document.getElementById('tab-estabilizar').classList.remove('active');
             renderPlanos();
         });
-
-        // --- DISTRIBUIÇÃO DE COMISSÃO (3 NÍVEIS) ---
-        async function distribuirComissoesRede(userData, valorPlano, compradorUid) {
-            const hierarquia = [
-                { id: userData.indicadoPor, porcentagem: 0.15, nivel: 1 },
-                { id: userData.nivel2, porcentagem: 0.03, nivel: 2 },
-                { id: userData.nivel3, porcentagem: 0.01, nivel: 3 }
-            ];
-
-            for (const el of hierarquia) {
-                if (el.id && el.id !== "direto") {
-                    try {
-                        const comissao = valorPlano * el.porcentagem;
-                        const padrinhoRef = doc(db, "users", el.id);
-                        
-                        await updateDoc(padrinhoRef, {
-                            saldoLucro: increment(comissao),
-                            totalComissaoRede: increment(comissao)
-                        });
-
-                        await addDoc(collection(db, "transacoes"), {
-                            userId: el.id,
-                            tipo: "comissao_rede",
-                            valor: comissao,
-                            nivelOrigem: el.nivel,
-                            compradorNome: userData.nome,
-                            compradorUid: compradorUid,
-                            data: serverTimestamp()
-                        });
-                        
-                        console.log(`Comissão Nível ${el.nivel} paga`);
-                    } catch (err) {
-                        console.error(`Falha Nível ${el.nivel}:`, err);
-                    }
-                }
-            }
-        }
-
-        window.comprarPlano = async (id, preco, tipoAba) => {
-            onAuthStateChanged(auth, async (user) => {
-                if (!user) {
-                    Swal.fire("Erro", "Você precisa estar logado para investir.", "error");
-                    return;
-                }
-
-                const userRef = doc(db, "users", user.uid);
-                const userSnap = await getDoc(userRef);
-                if (!userSnap.exists()) return;
-
-                const userData = userSnap.data();
-                const saldoAtual = userData.saldo || 0;
-
-                if (saldoAtual < preco) {
-                    Swal.fire({
-                        title: "Saldo Insuficiente",
-                        text: "Você não possui saldo para realizar este investimento.",
-                        icon: "warning",
-                        confirmButtonColor: "#00a3e0"
-                    });
-                    return;
-                }
-
-                Swal.fire({
-                    title: 'Confirmar Investimento?',
-                    text: `Deseja investir R$ ${preco} no plano selecionado?`,
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonColor: '#00a3e0',
-                    cancelButtonColor: '#d33',
-                    confirmButtonText: 'Confirmar',
-                    cancelButtonText: 'Cancelar'
-                }).then(async (result) => {
-                    if (result.isConfirmed) {
-                        try {
-                            const listaSource = (tipoAba === 'estabilizar') ? planosEstabilizar : planosAvancados;
-                            const planoData = listaSource.find(p => p.id === id);
-                            
-                            await updateDoc(userRef, {
-                                saldo: increment(-preco),
-                                totalInvestido: increment(preco),
-                                isVip: true
-                            });
-
-                            await distribuirComissoesRede(userData, preco, user.uid);
-
-                            const agora = new Date();
-                            const agoraMS = agora.getTime();
-
-                            await addDoc(collection(db, "ativos"), {
-                                userId: user.uid,
-                                planoId: id,
-                                nome: planoData.nome,
-                                valorInvestido: preco,
-                                lucroDiario: preco * 0.20,
-                                lucroTotalAcumulado: 0,
-                                dataCompra: serverTimestamp(),
-                                timestampCompra: agoraMS,
-                                ultimoPagamento: agoraMS,
-                                cicloRestante: 15,
-                                status: "ativo"
-                            });
-
-                            Swal.fire({
-                                title: "Sucesso!",
-                                text: "Investimento ativo! Acompanhe seus lucros em 'Ativos'.",
-                                icon: "success",
-                                confirmButtonColor: "#00a3e0"
-                            }).then(() => {
-                                window.location.href = "ativos.html";
-                            });
-
-                        } catch (error) {
-                            console.error("Erro:", error);
-                            Swal.fire("Erro", "Falha ao processar compra.", "error");
-                        }
-                    }
-                });
-            });
-        };
 
         const swiper = new Swiper('.swiper-container', {
             loop: true,
