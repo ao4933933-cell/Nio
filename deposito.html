@@ -383,7 +383,6 @@
 
         let userUID = null;
         let userData = null;
-        // MANTENHA A URL DO PIPEDREAM ATUALIZADA AQUI
         const PIPEDREAM_URL = "https://eoj436mi1cazadb.m.pipedream.net";
 
         onAuthStateChanged(auth, (user) => {
@@ -412,6 +411,11 @@
             const amount = parseFloat(amountInput.value);
             const btn = document.getElementById('btnSubmit');
 
+            // Proteção: impede o envio se o ID do usuário ainda não tiver sido carregado
+            if (!userUID) {
+                return Swal.fire("Aguarde", "Carregando dados do perfil...", "info");
+            }
+
             if (isNaN(amount) || amount < 30) {
                 return Swal.fire("Valor Inválido", "O depósito mínimo é de R$ 30,00", "warning");
             }
@@ -433,9 +437,6 @@
                 if (!res.ok) throw new Error("Erro na rede");
 
                 const data = await res.json();
-                console.log("Resposta Pipedream:", data);
-
-                // Busca o código PIX em todas as chaves possíveis que definimos no Pipedream
                 const brCode = data.pix_code || data.qrcode || (data.body && data.body.pix_code);
 
                 if (brCode) {
@@ -446,7 +447,6 @@
                     const qrDiv = document.getElementById("qrcode");
                     qrDiv.innerHTML = "";
                     
-                    // Gera o QR Code visual
                     new QRCode(qrDiv, { 
                         text: brCode, 
                         width: 200, 
@@ -454,15 +454,13 @@
                         correctLevel : QRCode.CorrectLevel.M
                     });
                 } else { 
-                    console.error("Payload recebido sem código PIX:", data);
                     throw new Error("Resposta inválida do servidor"); 
                 }
             } catch (e) {
-                console.error("Erro completo:", e);
                 Swal.fire({
                     icon: 'error',
                     title: 'Falha na Conexão',
-                    text: 'Não foi possível gerar o QR Code. Verifique se o valor é válido e tente novamente.',
+                    text: 'Não foi possível gerar o QR Code. Tente novamente.',
                     confirmButtonColor: '#00a3e0'
                 });
                 btn.disabled = false;
