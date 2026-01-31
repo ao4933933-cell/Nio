@@ -172,7 +172,9 @@
             display: flex; align-items: center; justify-content: center; font-weight: 800; color: #000;
         }
         .leader-email { flex: 1; margin-left: 20px; font-weight: 600; color: #fff; }
-        .leader-count { font-size: 12px; font-weight: 800; color: var(--success); text-align: right; }
+        .leader-details { text-align: right; }
+        .leader-count { font-size: 14px; font-weight: 800; color: var(--success); }
+        .leader-subtext { font-size: 9px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; }
 
         .active-plans-box { background: rgba(0,0,0,0.2); border-radius: 24px; padding: 25px; border: 1px solid var(--glass-border); }
 
@@ -285,7 +287,7 @@
                         </div>
 
                         <div class="field-group">
-                            <span class="field-label">Poder de Rede (Total Indicados)</span>
+                            <span class="field-label">Poder de Rede (Diretos)</span>
                             <span class="field-value" id="u-network-count">0 Membros</span>
                         </div>
 
@@ -321,8 +323,8 @@
 
         <section id="lideres" class="hidden">
             <div class="page-header">
-                <p class="page-subtitle">Network Powerhouse</p>
-                <h1 class="page-title">Top 10 Líderes NIO</h1>
+                <p class="page-subtitle">Deep Network Analysis</p>
+                <h1 class="page-title">Top 10 Força de Rede (Total Níveis)</h1>
             </div>
             <div class="admin-section" id="ranking-container">
                 </div>
@@ -392,11 +394,10 @@
             document.getElementById(id).classList.remove('hidden');
             el.classList.add('active');
             
-            if(id === 'lideres') loadTopLeaders();
+            if(id === 'lideres') loadTopLeadersExpanded();
         };
 
         function initAdminEngine() {
-            // Dashboard e Novos Usuários em Tempo Real
             onSnapshot(collection(db, "users"), (snap) => {
                 let liqTotal = 0, lucroTotal = 0;
                 const tbody = document.getElementById('table-new-users');
@@ -433,7 +434,6 @@
                 document.getElementById('stat-users-today').innerText = snap.size;
             });
 
-            // Saques Pendentes
             onSnapshot(query(collection(db, "solicitacoes_saque"), where("status", "==", "pendente")), (snap) => {
                 const tbody = document.getElementById('table-withdrawals');
                 let pendingVal = 0;
@@ -458,48 +458,60 @@
             });
         }
 
-        // --- CORREÇÃO DO RANKING TOP LÍDERES ---
-        async function loadTopLeaders() {
+        // --- LÓGICA DE REDE COMPLETA (FILHOS, NETOS E BISNETOS) ---
+        async function loadTopLeadersExpanded() {
             const container = document.getElementById('ranking-container');
             container.innerHTML = `
                 <div style="text-align:center; padding: 40px;">
                     <div class="spinner" style="margin: 0 auto 20px;"></div>
-                    <p style="color:var(--nio-blue); font-weight:800; letter-spacing:2px;">MAPEANDO REDE NIO...</p>
+                    <p style="color:var(--nio-blue); font-weight:800; letter-spacing:2px;">ESCANER DE REDE PROFUNDA ATIVADO...</p>
                 </div>`;
 
             try {
-                const allUsersSnap = await getDocs(collection(db, "users"));
-                const usersMap = {};
-                const leadersList = [];
+                const snap = await getDocs(collection(db, "users"));
+                const allUsers = [];
+                const idToEmailMap = {};
 
-                // 1. Criar mapa de ID -> Email para busca rápida
-                allUsersSnap.forEach(u => {
-                    usersMap[u.id] = u.data().email || "Usuário Sem Email";
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    allUsers.push({ id: doc.id, indicadoPor: data.indicadoPor });
+                    idToEmailMap[doc.id] = data.email || "Sem E-mail";
                 });
 
-                // 2. Contar indicações por ID
-                const counts = {};
-                allUsersSnap.forEach(u => {
-                    const indicadoPor = u.data().indicadoPor;
-                    if (indicadoPor && indicadoPor !== "direto") {
-                        counts[indicadoPor] = (counts[indicadoPor] || 0) + 1;
+                const networkCounts = {};
+
+                // Para cada usuário na plataforma, vamos subir a árvore até o topo
+                allUsers.forEach(user => {
+                    let ancestorId = user.indicadoPor;
+                    let depth = 0;
+                    const maxDepth = 10; // Limite de níveis para evitar loops infinitos
+
+                    // Percorre a linhagem para cima e atribui 1 ponto de rede a cada ancestral
+                    while (ancestorId && ancestorId !== "direto" && depth < maxDepth) {
+                        networkCounts[ancestorId] = (networkCounts[ancestorId] || 0) + 1;
+                        
+                        // Busca quem indicou o ancestral atual
+                        const nextAncestor = allUsers.find(u => u.id === ancestorId);
+                        if (nextAncestor) {
+                            ancestorId = nextAncestor.indicadoPor;
+                            depth++;
+                        } else {
+                            break;
+                        }
                     }
                 });
 
-                // 3. Formatar lista final com emails reais
-                for (const [id, count] of Object.entries(counts)) {
-                    if (usersMap[id]) {
-                        leadersList.push({ email: usersMap[id], count: count });
-                    }
-                }
+                const ranking = Object.entries(networkCounts).map(([uid, total]) => ({
+                    email: idToEmailMap[uid],
+                    total: total
+                }));
 
-                // 4. Ordenar e Pegar Top 10
-                leadersList.sort((a, b) => b.count - a.count);
-                const top10 = leadersList.slice(0, 10);
+                ranking.sort((a, b) => b.total - a.total);
+                const top10 = ranking.slice(0, 10);
 
                 container.innerHTML = "";
                 if (top10.length === 0) {
-                    container.innerHTML = "<p style='text-align:center; color:gray;'>Nenhum líder com rede encontrado ainda.</p>";
+                    container.innerHTML = "<p style='text-align:center; color:gray;'>Nenhuma rede ativa detectada.</p>";
                     return;
                 }
 
@@ -508,12 +520,15 @@
                         <div class="leader-card">
                             <div class="leader-rank">${index + 1}</div>
                             <div class="leader-email">${leader.email}</div>
-                            <div class="leader-count">${leader.count} Convidados</div>
+                            <div class="leader-details">
+                                <div class="leader-count">${leader.total} Integrantes</div>
+                                <div class="leader-subtext">Rede Global (Todos Níveis)</div>
+                            </div>
                         </div>`;
                 });
 
             } catch (err) {
-                container.innerHTML = "<p style='color:red;'>Erro ao carregar ranking: " + err.message + "</p>";
+                container.innerHTML = `<p style='color:red;'>Erro crítico na análise: ${err.message}</p>`;
             }
         }
 
@@ -536,7 +551,6 @@
             currentVipStatus = d.contratado || false;
             currentBanStatus = d.banido || false;
 
-            // Interface Dinâmica dos Botões
             const vipBtn = document.getElementById('vip-toggle-btn');
             const banBtn = document.getElementById('ban-toggle-btn');
 
@@ -546,12 +560,10 @@
             banBtn.innerText = currentBanStatus ? "DESBANIR" : "RESTRINGIR";
             banBtn.style.background = currentBanStatus ? "var(--success)" : "var(--danger)";
 
-            // Preenchimento de Dados
             document.getElementById('u-uid').innerText = uDoc.id;
             document.getElementById('u-balance').innerText = formatBRL(d.saldo);
             document.getElementById('u-profit').innerText = formatBRL(d.saldoLucro);
 
-            // Buscar Sponsor
             if(d.indicadoPor && d.indicadoPor !== "direto") {
                 const sponsorDoc = await getDocs(query(collection(db, "users"), where("__name__", "==", d.indicadoPor)));
                 document.getElementById('u-sponsor').innerText = sponsorDoc.empty ? "ID: " + d.indicadoPor : sponsorDoc.docs[0].data().email;
@@ -559,12 +571,10 @@
                 document.getElementById('u-sponsor').innerText = "Entrada Direta";
             }
 
-            // Contar Rede Direta
             const qNet = query(collection(db, "users"), where("indicadoPor", "==", currentSearchUid));
             const snapNet = await getDocs(qNet);
             document.getElementById('u-network-count').innerText = snapNet.size + " Membros Diretos";
 
-            // Listar Planos Ativos
             const qPlans = query(collection(db, "ativos"), where("userId", "==", currentSearchUid), where("status", "==", "ativo"));
             const snapPlans = await getDocs(qPlans);
             const plansBox = document.getElementById('user-active-plans-list');
@@ -576,14 +586,13 @@
                     <div style="background:rgba(255,255,255,0.03); padding:15px; border-radius:12px; margin-bottom:10px; border-left:3px solid var(--nio-blue);">
                         <div style="font-size:12px; font-weight:800; color:#fff;">${pData.nome}</div>
                         <div style="font-size:10px; color:var(--success);">Rendimento: ${formatBRL(pData.lucroDiario)}/dia</div>
-                        <div style="font-size:10px; color:gray;">Total Investido: ${formatBRL(pData.valorInvestido)}</div>
+                        <div style="font-size:10px; color:gray;">Investido: ${formatBRL(pData.valorInvestido)}</div>
                     </div>`;
             });
 
             document.getElementById('userDetails').classList.remove('hidden');
         };
 
-        // --- AÇÕES DO PAINEL ---
         window.toggleVipSearch = async () => {
             const newStatus = !currentVipStatus;
             await updateDoc(doc(db, "users", currentSearchUid), { contratado: newStatus });
@@ -595,7 +604,6 @@
             const newBanStatus = !currentBanStatus;
             const confirm = await Swal.fire({
                 title: newBanStatus ? "Restringir Usuário?" : "Restaurar Acesso?",
-                text: newBanStatus ? "O investidor não poderá realizar saques." : "O investidor voltará a operar normalmente.",
                 icon: "warning",
                 showCancelButton: true,
                 confirmButtonColor: newBanStatus ? "#ff3366" : "#00ff88"
@@ -603,7 +611,7 @@
             
             if(confirm.isConfirmed) {
                 await updateDoc(doc(db, "users", currentSearchUid), { banido: newBanStatus });
-                Swal.fire("Concluído", "Status de acesso alterado.", "success");
+                Swal.fire("Concluído", "Status alterado.", "success");
                 searchUser();
             }
         };
@@ -613,13 +621,11 @@
                 title: `Ajustar ${label}`,
                 input: 'number',
                 background: '#010409', color: '#fff',
-                confirmButtonColor: '#00a3e0',
                 showCancelButton: true
             });
 
             if (newVal !== undefined && newVal !== null && newVal !== "") {
                 await updateDoc(doc(db, "users", currentSearchUid), { [field]: parseFloat(newVal) });
-                Swal.fire("Atualizado", "Banco de dados sincronizado.", "success");
                 searchUser(); 
             }
         };
@@ -632,7 +638,7 @@
         window.rejeitarSaque = async (docId, uid, valor) => {
             await updateDoc(doc(db, "solicitacoes_saque", docId), { status: "rejeitado" });
             await updateDoc(doc(db, "users", uid), { saldoLucro: increment(valor) });
-            Swal.fire("Estornado", "Saldo devolvido à conta do investidor.", "info");
+            Swal.fire("Estornado", "Saldo devolvido.", "info");
         };
 
         window.toggleContrato = async (uid, status) => {
