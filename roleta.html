@@ -172,13 +172,13 @@
             border: 1px solid rgba(0, 242, 255, 0.2);
         }
 
-        /* CUSTOM SWEETALERT STYLES - INTEGRANDO COM A NIO */
+        /* CUSTOM SWEETALERT STYLES */
         .nio-swal-popup {
             background: #0a0d14 !important;
             border: 1px solid var(--nio-blue) !important;
             border-radius: 20px !important;
             padding: 1.5rem !important;
-            width: 320px !important; /* Menor e mais mobile friendly */
+            width: 320px !important;
         }
         .nio-swal-title {
             color: #fff !important;
@@ -270,7 +270,6 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
 
-    // Configuração Global do SweetAlert para a NIO
     const nioAlert = Swal.mixin({
         customClass: {
             popup: 'nio-swal-popup',
@@ -287,16 +286,19 @@
     let currentRotation = 0;
     let isSpinning = false;
 
+    // DEFINIÇÃO DOS PRÊMIOS COM PESO (Probabilidade)
+    // weight: Peso relativo para o sorteio.
     const prizes = [
-        { label: "R$ 2", value: 2, color: "#010409" },
-        { label: "R$ 4", value: 4, color: "#0a1a2f" },
-        { label: "R$ 6", value: 6, color: "#010409" },
-        { label: "R$ 8", value: 8, color: "#0a1a2f" },
-        { label: "R$ 10", value: 10, color: "#00a3e0" },
-        { label: "R$ 12", value: 12, color: "#0a1a2f" },
-        { label: "R$ 14", value: 14, color: "#010409" },
-        { label: "R$ 16", value: 16, color: "#00f2ff" }
+        { label: "R$ 2", value: 2, color: "#010409", weight: 33 },
+        { label: "R$ 4", value: 4, color: "#0a1a2f", weight: 33 },
+        { label: "R$ 6", value: 6, color: "#010409", weight: 33 },
+        { label: "R$ 8", value: 8, color: "#0a1a2f", weight: 0.2 },
+        { label: "R$ 10", value: 10, color: "#00a3e0", weight: 0.2 },
+        { label: "R$ 12", value: 12, color: "#0a1a2f", weight: 0.2 },
+        { label: "R$ 14", value: 14, color: "#010409", weight: 0.2 },
+        { label: "R$ 16", value: 16, color: "#00f2ff", weight: 0.2 }
     ];
+    // Nota: 33+33+33 = 99. Os restantes somam 1.
 
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
@@ -321,7 +323,7 @@
             ctx.rotate(angle + arc/2);
             ctx.fillStyle = "#fff";
             ctx.font = "bold 14px Inter";
-            ctx.fillText(p.label, 65, 5);
+            ctx.fillText(p.label, 65, 5); // Ajuste da posição do texto
             ctx.restore();
         });
     }
@@ -336,6 +338,7 @@
                 document.getElementById('displaySaldoLucro').innerText = `R$ ${(data.saldoLucro || 0).toFixed(2)}`;
                 document.getElementById('girosDisponiveis').innerText = `Giros: ${data.girosRoleta || 0}`;
                 
+                // Lógica do Check-in
                 const lastCheckin = data.ultimoCheckin?.toDate() || new Date(0);
                 const now = new Date();
                 const isSameDay = lastCheckin.getDate() === now.getDate() && 
@@ -345,10 +348,10 @@
                 const btn = document.getElementById('checkinBtn');
                 if(isSameDay) {
                     btn.disabled = true;
-                    btn.innerText = "Aguarde até as 00:00";
+                    btn.innerText = "Check-in Realizado Hoje";
                 } else {
                     btn.disabled = false;
-                    btn.innerText = "Coletar Recompensa";
+                    btn.innerText = "Coletar Check-in";
                 }
 
                 renderGrid(data.diaCheckin || 1);
@@ -373,26 +376,47 @@
 
     document.getElementById('checkinBtn').onclick = async () => {
         const user = auth.currentUser;
+        // Valor aleatório para o checkin entre 0.20 e 0.90
         const reward = parseFloat((Math.random() * (0.90 - 0.20) + 0.20).toFixed(2));
         
-        await updateDoc(doc(db, "users", user.uid), {
-            saldoLucro: increment(reward),
-            ultimoCheckin: serverTimestamp(),
-            diaCheckin: increment(1)
-        });
+        try {
+            await updateDoc(doc(db, "users", user.uid), {
+                saldoLucro: increment(reward),
+                ultimoCheckin: serverTimestamp(),
+                diaCheckin: increment(1)
+            });
 
-        nioAlert.fire({
-            title: 'CHECK-IN NIO',
-            html: `Você resgatou com sucesso:<br><b style="color:var(--profit-green); font-size: 20px;">+ R$ ${reward}</b>`,
-            icon: 'success'
-        });
+            nioAlert.fire({
+                title: 'CHECK-IN REALIZADO',
+                html: `Você ganhou:<br><b style="color:var(--profit-green); font-size: 20px;">+ R$ ${reward}</b>`,
+                icon: 'success'
+            });
+        } catch (error) {
+            console.error("Erro no checkin:", error);
+            nioAlert.fire({ title: 'Erro', text: 'Tente novamente mais tarde.', icon: 'error' });
+        }
     };
+
+    // Função para sortear com base nos pesos (Probabilidade)
+    function getWeightedPrize() {
+        const totalWeight = prizes.reduce((sum, item) => sum + item.weight, 0);
+        let random = Math.random() * totalWeight;
+        
+        for (let i = 0; i < prizes.length; i++) {
+            if (random < prizes[i].weight) {
+                return i;
+            }
+            random -= prizes[i].weight;
+        }
+        return 0; // Fallback
+    }
 
     document.getElementById('spinBtn').onclick = async () => {
         if (isSpinning) return;
         
         const user = auth.currentUser;
-        const userSnap = await getDoc(doc(db, "users", user.uid));
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
         const spins = userSnap.data().girosRoleta || 0;
 
         if (spins <= 0) {
@@ -407,32 +431,60 @@
         isSpinning = true;
         document.getElementById('spinBtn').disabled = true;
 
-        const winnerIndex = Math.floor(Math.random() * prizes.length);
-        const spinsCount = 10 * 360; 
-        const degPerPrize = 360 / prizes.length;
-        
-        const targetDeg = (360 - (winnerIndex * degPerPrize)) - (degPerPrize / 2);
-        currentRotation += spinsCount + (targetDeg - (currentRotation % 360));
+        // 1. Determina o vencedor com base na probabilidade
+        const winnerIndex = getWeightedPrize();
+        const prize = prizes[winnerIndex];
 
+        // 2. Cálculo Matemático da Rotação
+        // O canvas desenha partindo do ângulo 0 (3 horas).
+        // Cada prêmio ocupa um arco (360 / prizes.length).
+        // O centro do prêmio sorteado está em: (winnerIndex * arc) + (arc / 2).
+        // O marcador (seta) está no TOPO, que corresponde a 270 graus (ou 3*PI/2) no canvas.
+        
+        const segmentAngleRad = (winnerIndex * arc) + (arc / 2); // Ângulo central do prêmio em radianos
+        const segmentAngleDeg = segmentAngleRad * (180 / Math.PI); // Convertendo para graus
+        
+        // A rotação necessária é: Destino (270) - Onde o prêmio está (segmentAngleDeg).
+        // Adicionamos rotações extras (10 voltas completas) para animação.
+        const extraSpins = 360 * 10;
+        
+        // O "% 360" normaliza a rotação atual para evitar números gigantescos indefinidamente
+        const currentMod = currentRotation % 360;
+        
+        // Cálculo final do alvo
+        let targetRotation = (270 - segmentAngleDeg);
+        
+        // Ajuste para garantir que a roda sempre gire no sentido horário
+        if (targetRotation < currentMod) {
+             targetRotation += 360;
+        }
+        
+        // Atualiza a variável global
+        currentRotation = currentRotation + extraSpins + (targetRotation - currentMod);
+
+        // Aplica a rotação CSS
         document.getElementById('wheel').style.transform = `rotate(${currentRotation}deg)`;
 
+        // 3. Aguarda o fim da animação e processa o prêmio
         setTimeout(async () => {
-            const prize = prizes[winnerIndex];
-            
-            await updateDoc(doc(db, "users", user.uid), {
-                girosRoleta: increment(-1),
-                saldoLucro: increment(prize.value)
-            });
+            try {
+                await updateDoc(userRef, {
+                    girosRoleta: increment(-1),
+                    saldoLucro: increment(prize.value)
+                });
 
-            nioAlert.fire({
-                title: 'PREMIAÇÃO NIO',
-                html: `A roleta parou em:<br><b style="color:var(--nio-neon); font-size: 20px;">${prize.label}</b>`,
-                icon: 'success'
-            });
+                nioAlert.fire({
+                    title: 'PARABÉNS!',
+                    html: `A roleta parou em:<br><b style="color:var(--nio-neon); font-size: 20px;">${prize.label}</b>`,
+                    icon: 'success'
+                });
+            } catch (error) {
+                console.error("Erro ao salvar prêmio:", error);
+            }
 
             isSpinning = false;
             document.getElementById('spinBtn').disabled = false;
-        }, 5100);
+        }, 5100); // 5 segundos de animação + 100ms de margem
     };
 </script>
 </body>
