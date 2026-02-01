@@ -267,7 +267,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, query, where, onSnapshot, getDocs, doc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, query, where, onSnapshot, getDocs, doc, updateDoc, increment, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
@@ -293,80 +293,90 @@
         const emptyState = document.getElementById('emptyState');
         const totalDisplay = document.getElementById('totalYieldDisplay');
 
-        // MOTOR DE PROCESSAMENTO CRONOLÓGICO (HORÁRIO FIXO)
+        // MOTOR DE PROCESSAMENTO PROTEGIDO CONTRA BUGS DE RECARGA
         async function processarRendimentos(uid) {
             const agora = Date.now();
             const vinteQuatroHoras = 24 * 60 * 60 * 1000;
+            
             const q = query(collection(db, "ativos"), where("userId", "==", uid), where("status", "==", "ativo"));
             const querySnapshot = await getDocs(q);
 
-            querySnapshot.forEach(async (docSnap) => {
-                const dados = docSnap.data();
+            for (const docSnap of querySnapshot.docs) {
+                const data = docSnap.data();
                 
-                // DATA DE ANCORAGEM: Calculamos exatamente quando o próximo lucro deve cair
-                // Com base na hora exata da COMPRA original
-                const diasPassadosDesdeCompra = Math.floor((agora - dados.timestampCompra) / vinteQuatroHoras);
-                const diasPagosJa = 15 - dados.cicloRestante;
+                // DATA DE REFERÊNCIA: Usa a data da compra ou o último pagamento real
+                const baseTempo = data.ultimoPagamento || data.timestampCompra;
                 
-                // Se o tempo passado desde a compra (em dias inteiros) for maior que os dias já pagos
-                if (diasPassadosDesdeCompra > diasPagosJa && dados.cicloRestante > 0) {
+                // Só processa se já passou 24h desde o último pagamento
+                if (agora >= (baseTempo + vinteQuatroHoras) && data.cicloRestante > 0) {
                     
-                    // Calculamos quantos dias o sistema "deve" para o usuário
-                    const diasDevidos = diasPassadosDesdeCompra - diasPagosJa;
-                    const lucroPagar = dados.lucroDiario * diasDevidos;
-
                     try {
-                        // 1. Atualiza SALDO LUCRO do Usuário
-                        const userRef = doc(db, "users", uid);
-                        await updateDoc(userRef, {
-                            saldoLucro: increment(lucroPagar)
-                        });
+                        await runTransaction(db, async (transaction) => {
+                            const userRef = doc(db, "users", uid);
+                            const ativoRef = docSnap.ref;
+                            
+                            const userDoc = await transaction.get(userRef);
+                            const currentAtivo = await transaction.get(ativoRef);
+                            const currentAtivoData = currentAtivo.data();
 
-                        // 2. Atualiza o Ativo - Mantendo a data fixa de aniversário
-                        await updateDoc(docSnap.ref, {
-                            // O ultimoPagamento vira exatamente a hora do "aniversário" da compra
-                            ultimoPagamento: dados.timestampCompra + (diasPassadosDesdeCompra * vinteQuatroHoras),
-                            lucroTotalAcumulado: increment(lucroPagar),
-                            cicloRestante: increment(-diasDevidos)
-                        });
+                            // VERIFICAÇÃO DUPLA DENTRO DA TRANSAÇÃO (TRAVA DE SEGURANÇA)
+                            if (agora < (currentAtivoData.ultimoPagamento || currentAtivoData.timestampCompra) + vinteQuatroHoras) {
+                                return; // Alguém já processou nesse meio tempo
+                            }
 
-                        // SweetAlert Minimalista Premium (Toast)
-                        const Toast = Swal.mixin({
-                            toast: true,
-                            position: 'top-end',
-                            showConfirmButton: false,
-                            timer: 4000,
-                            timerProgressBar: true,
-                            background: '#02060d',
-                            color: '#00a3e0',
-                            iconColor: '#00ff88',
-                            didOpen: (toast) => {
-                                toast.addEventListener('mouseenter', Swal.stopTimer)
-                                toast.addEventListener('mouseleave', Swal.resumeTimer)
+                            const diasParaPagar = Math.floor((agora - baseTempo) / vinteQuatroHoras);
+                            const lucroPagar = currentAtivoData.lucroDiario * diasParaPagar;
+
+                            if (lucroPagar > 0 && currentAtivoData.cicloRestante > 0) {
+                                // 1. Atualiza SALDO do usuário
+                                transaction.update(userRef, {
+                                    saldoLucro: increment(lucroPagar)
+                                });
+
+                                // 2. Atualiza o Ativo e marca o tempo para as próximas 24h
+                                transaction.update(ativoRef, {
+                                    ultimoPagamento: baseTempo + (diasParaPagar * vinteQuatroHoras),
+                                    lucroTotalAcumulado: increment(lucroPagar),
+                                    cicloRestante: increment(-diasParaPagar)
+                                });
+
+                                // Notificação de Sucesso
+                                mostrarToastSucesso(lucroPagar);
                             }
                         });
-
-                        Toast.fire({
-                            icon: 'success',
-                            title: `<span style="color:white; font-weight:700;">Lucro Creditado!</span>`,
-                            html: `<span style="color:rgba(255,255,255,0.7); font-size:12px;">+ R$ ${lucroPagar.toFixed(2)} adicionados ao seu saldo de ativos.</span>`
-                        });
-
-                    } catch (e) { 
-                        console.error("Erro na sincronização de lucro:", e); 
+                    } catch (e) {
+                        console.error("Erro na transação de lucro:", e);
                     }
-                } 
-                
-                // Finaliza o contrato se o ciclo acabar
-                if (dados.cicloRestante <= 0) {
+                }
+
+                // Desativa se o ciclo acabar
+                if (data.cicloRestante <= 0 && data.status === "ativo") {
                     await updateDoc(docSnap.ref, { status: "finalizado" });
                 }
+            }
+        }
+
+        function mostrarToastSucesso(valor) {
+            const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 4000,
+                timerProgressBar: true,
+                background: '#02060d',
+                color: '#00a3e0',
+                iconColor: '#00ff88'
+            });
+
+            Toast.fire({
+                icon: 'success',
+                title: `<span style="color:white; font-weight:700;">Lucro Sincronizado</span>`,
+                html: `<span style="color:rgba(255,255,255,0.7); font-size:12px;">+ R$ ${valor.toFixed(2)} creditados com segurança.</span>`
             });
         }
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                // Executa o motor assim que o usuário loga/entra na página
                 processarRendimentos(user.uid);
                 renderUserAssets(user.uid);
             } else {
@@ -397,8 +407,8 @@
                     
                     const cicloMax = 15;
                     const diasRestantes = data.cicloRestante || 0;
-                    const diasPassados = cicloMax - diasRestantes;
-                    const porcentagem = (diasPassados / cicloMax) * 100;
+                    const diasPassados = Math.max(0, cicloMax - diasRestantes);
+                    const porcentagem = Math.min(100, (diasPassados / cicloMax) * 100);
                     const imagem = imagensPlanos[data.planoId] || "Plano1.jpg";
 
                     const card = `
